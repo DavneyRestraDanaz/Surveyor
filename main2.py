@@ -196,7 +196,7 @@ class ExcelViewerApp(QWidget):
 
         # Add toggle buttons for each group
         toggle_layout = QHBoxLayout()
-        toggle_personal = QPushButton("Toggle Personal Information")
+        toggle_personal = QPushButton("Personal Information")
         toggle_personal.setCheckable(True)
         toggle_personal.setChecked(False)  # Initially unchecked
         toggle_personal.setFont(QFont("Arial", 10))
@@ -204,7 +204,7 @@ class ExcelViewerApp(QWidget):
         toggle_personal.toggled.connect(lambda checked: personal_group.setVisible(checked))
         toggle_layout.addWidget(toggle_personal)
         
-        toggle_ist = QPushButton("Toggle IST")
+        toggle_ist = QPushButton("IST")
         toggle_ist.setCheckable(True)
         toggle_ist.setChecked(False)  # Initially unchecked
         toggle_ist.setFont(QFont("Arial", 10))
@@ -212,7 +212,7 @@ class ExcelViewerApp(QWidget):
         toggle_ist.toggled.connect(lambda checked: ist_group.setVisible(checked))
         toggle_layout.addWidget(toggle_ist)
         
-        toggle_papikostick = QPushButton("Toggle PAPIKOSTICK")
+        toggle_papikostick = QPushButton("PAPIKOSTICK")
         toggle_papikostick.setCheckable(True)
         toggle_papikostick.setChecked(False)  # Initially unchecked
         toggle_papikostick.setFont(QFont("Arial", 10))
@@ -262,17 +262,11 @@ class ExcelViewerApp(QWidget):
         # Buttons below table
         button_layout = QHBoxLayout()
         
-        self.btn_delete = QPushButton("Hapus Baris Terpilih")
+        self.btn_delete = QPushButton("Delete Row")
         self.btn_delete.setFont(QFont("Arial", 10))
         self.btn_delete.setFixedHeight(35)
         self.btn_delete.clicked.connect(self.delete_selected_row)
         button_layout.addWidget(self.btn_delete)
-
-        self.btn_print = QPushButton("Print Data Terpilih")
-        self.btn_print.setFont(QFont("Arial", 10))
-        self.btn_print.setFixedHeight(35)
-        self.btn_print.clicked.connect(self.print_selected_row)
-        button_layout.addWidget(self.btn_print)
 
         # Add Preview PDF button
         self.btn_preview_pdf = QPushButton("Preview PDF")
@@ -281,7 +275,7 @@ class ExcelViewerApp(QWidget):
         self.btn_preview_pdf.clicked.connect(self.preview_pdf)
         button_layout.addWidget(self.btn_preview_pdf)
 
-        self.btn_save_excel = QPushButton("Simpan Perubahan ke Excel")
+        self.btn_save_excel = QPushButton("Save to Excel")
         self.btn_save_excel.setFont(QFont("Arial", 10))
         self.btn_save_excel.setFixedHeight(35)
         self.btn_save_excel.clicked.connect(self.save_to_excel)
@@ -298,13 +292,13 @@ class ExcelViewerApp(QWidget):
         if not hasattr(self, 'excel_file_path') or not self.excel_file_path:
             QMessageBox.warning(self, "Warning", "Please load an Excel file first!")
             return
-            
-        search_text = self.search_input.text().lower()
+
+        search_text = self.search_input.text().lower().strip()
         selected_column = self.search_column.currentText()
 
         for row in range(self.table.rowCount()):
             row_visible = False
-            
+
             if selected_column == "Semua Kolom":
                 # Search in all columns
                 for col in range(self.table.columnCount()):
@@ -321,87 +315,12 @@ class ExcelViewerApp(QWidget):
 
             self.table.setRowHidden(row, not row_visible)
 
-    def add_toggle_button(self, layout, group, text):
-        toggle_button = QPushButton(text)
-        toggle_button.setCheckable(True)
-        toggle_button.setChecked(True)
-        toggle_button.setFont(QFont("Arial", 10))
-        toggle_button.setFixedHeight(35)
-        toggle_button.toggled.connect(lambda checked: group.setVisible(checked))
-        layout.addWidget(toggle_button)
+        # Debugging output
+        print(f"Search text: '{search_text}' in column: '{selected_column}'")
+        print(f"Total rows: {self.table.rowCount()}")
+        for row in range(self.table.rowCount()):
+            print(f"Row {row} visible: {not self.table.isRowHidden(row)}")
 
-    # Input Form Section
-        input_group = QGroupBox("Input Data")
-        input_group.setFont(QFont("Arial", 11, QFont.Bold))
-        input_layout = QGridLayout()  # Use QGridLayout for side-by-side arrangement
-        
-        self.input_fields = []
-        self.placeholders = ["No", "No Tes", "TGL Lahir", "JK", "Nama Peserta", 
-                             "IQ", "Konkrit Praktis", "Verbal", "Flexibilitas Pikir", 
-                             "Daya Abstraksi Verbal", "Berpikir Praktis", "Berpikir Teoritis", 
-                             "Memori", "N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", 
-                             "C (Coding)", "D", "R", "Z", "E", "K", "F", "W", "CD", "TV", "BO", "SO", "BX"]
-        
-        for i, placeholder in enumerate(self.placeholders):
-            label = QLabel(placeholder + ":")
-            label.setFont(QFont("Arial", 10))
-            field = QLineEdit() if placeholder != "TGL Lahir" else None
-            if placeholder == "TGL Lahir":
-                field = QPushButton("Pilih Tanggal")
-                field.clicked.connect(self.show_calendar)
-            field.setFixedHeight(30)
-            self.input_fields.append(field)
-            row = i // 3  # Arrange fields in rows of 3
-            col = (i % 3) * 2
-            input_layout.addWidget(label, row, col)
-            input_layout.addWidget(field, row, col + 1)
-
-        self.btn_add_update = QPushButton("Tambah / Edit Data")
-        self.btn_add_update.setFont(QFont("Arial", 10))
-        self.btn_add_update.setFixedHeight(35)
-        self.btn_add_update.clicked.connect(self.add_or_update_row)
-        input_layout.addWidget(self.btn_add_update, (len(self.placeholders) // 3) + 1, 0, 1, 6)
-        
-        input_group.setLayout(input_layout)
-        main_layout.addWidget(input_group)
-
-        # Table Section
-        table_group = QGroupBox("Data Hasil")
-        table_group.setFont(QFont("Arial", 11, QFont.Bold))
-        table_layout = QVBoxLayout()
-        
-        self.table = QTableWidget()
-        self.table.setFont(QFont("Arial", 9))
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)  # Stretch columns to fit
-        table_layout.addWidget(self.table)
-
-        # Buttons below table
-        button_layout = QHBoxLayout()
-        
-        self.btn_delete = QPushButton("Hapus Baris Terpilih")
-        self.btn_delete.setFont(QFont("Arial", 10))
-        self.btn_delete.setFixedHeight(35)
-        self.btn_delete.clicked.connect(self.delete_selected_row)
-        button_layout.addWidget(self.btn_delete)
-
-        self.btn_print = QPushButton("Print Data Terpilih")
-        self.btn_print.setFont(QFont("Arial", 10))
-        self.btn_print.setFixedHeight(35)
-        self.btn_print.clicked.connect(self.print_selected_row)
-        button_layout.addWidget(self.btn_print)
-
-        self.btn_save_excel = QPushButton("Simpan Perubahan ke Excel")
-        self.btn_save_excel.setFont(QFont("Arial", 10))
-        self.btn_save_excel.setFixedHeight(35)
-        self.btn_save_excel.clicked.connect(self.save_to_excel)
-        button_layout.addWidget(self.btn_save_excel)
-        
-        table_layout.addLayout(button_layout)
-        table_group.setLayout(table_layout)
-        main_layout.addWidget(table_group)
-
-        self.setLayout(main_layout)
-        
     def populate_fields_from_selection(self):
         selected_row = self.table.currentRow()
         if selected_row >= 0:
@@ -409,6 +328,11 @@ class ExcelViewerApp(QWidget):
             for col, column_name in enumerate(self.columns):
                 item = self.table.item(selected_row, col)
                 row_data[column_name] = item.text() if item else ""
+
+            # Debug prints
+            print(f"Selected Row: {selected_row}")
+            for key, value in row_data.items():
+                print(f"{key}: {value}")
 
             # Populate personal inputs
             for i, field in enumerate(self.personal_inputs):
@@ -1183,33 +1107,38 @@ class ExcelViewerApp(QWidget):
                 return
 
             # Get column indices and data
-            iq_col = self.get_column_index("IQ")
+            iq_col = self.get_column_index("IQ ")
             nama_col = self.get_column_index("Nama Peserta")
             tgl_lahir_col = self.get_column_index("TGL Lahir")
 
             # Get data from selected row
             iq_val = self.table.item(selected_row, iq_col)
-              # Dapatkan baris yang dipilih oleh pengguna
-            baris_index = self.table.currentRow()  # Mengambil baris yang saat ini dipilih
-
-            # Pastikan baris dipilih
-            if baris_index == -1:
-                QMessageBox.warning(self, "Peringatan", "Silakan pilih baris terlebih dahulu.")
-                return
-
-            # Dapatkan indeks kolom untuk 'IQ '
-            kolom_index = self.columns.index('IQ ')  # Pastikan nama kolom sesuai
-
-            # Ambil nilai IQ dari tabel
-            iq_value = self.table.item(baris_index, kolom_index).text() if self.table.item(baris_index, kolom_index) else "N/A"
-            
             nama_val = self.table.item(selected_row, nama_col)
-            nama = nama_val.text() if nama_val else ""
             tgl_lahir_val = self.table.item(selected_row, tgl_lahir_col)
+
+            # Initialize row_data from the selected row
+            row_data = {}
+            for col, column_name in enumerate(self.columns):
+                item = self.table.item(selected_row, col)
+                row_data[column_name] = item.text() if item else ""
+
+            # Debug prints
+            print(f"Selected Row: {selected_row}")
+            for key, value in row_data.items():
+                print(f"{key}: {value}")
+
+            nama = nama_val.text() if nama_val else ""
             tgl_lahir = tgl_lahir_val.text() if tgl_lahir_val else ""
 
+            # Ensure iq_val is converted to float correctly
+            try:
+                iq_value_numeric = float(iq_val.text()) if iq_val and iq_val.text().strip() else 0.0
+            except ValueError:
+                iq_value_numeric = 0.0
+
             # For debugging
-            print(f"IQ Value from table: {iq_value}")            
+            print(f"IQ Value from table: {iq_value_numeric}")
+
             # Create HTML content
             html_content = """
             <html>
@@ -1320,7 +1249,7 @@ class ExcelViewerApp(QWidget):
             """
             # Pastikan iq_value adalah numerik
             try:
-                iq_value_numeric = float(iq_value)
+                iq_value_numeric = float(iq_val.text())
             except ValueError:
                 iq_value_numeric = 0 
             # Add IQ Classification table
@@ -1338,7 +1267,7 @@ class ExcelViewerApp(QWidget):
                                                 <table style="width: 100%; border-collapse: collapse;">
                                                     <tr>
                                                         <td style="border-right: 1px solid black; padding: 8px; text-align: left;">Taraf<br>Kecerdasan<br>IQ</td>
-                                                        <td style="padding: 8px; text-align: center;">{iq_value}</td>
+                                                        <td style="padding: 8px; text-align: center;">{iq_val.text()}</td>
                                                     </tr>
                                                 </table>
                                             </td>
@@ -1376,182 +1305,204 @@ class ExcelViewerApp(QWidget):
             iq_class = self.table.item(selected_row, self.get_column_index("KLASIFIKASI"))
             if iq_val and iq_class:
 
-                    html_content += f"""
-                            </table>
-                        </td>
-                    </tr>
-                </table>
-                
-                <table class="psikogram" style="width: 100%; margin-top: 20px; border-collapse: collapse; border: 1px solid black;">
-                    <tr>
-                        <th colspan="8" style="text-align: center; padding: 8px; background-color: #deeaf6; border: 1px solid black;">PSIKOGRAM</th>
-                    </tr>
-                    <tr>
-                        <th style="width: 5%; border: 1px solid black; padding: 8px; background-color: #deeaf6;">NO</th>
-                        <th style="width: 15%; border: 1px solid black; padding: 8px; background-color: #deeaf6;">ASPEK<br>PSIKOLOGIS</th>
-                        <th style="width: 40%; border: 1px solid black; padding: 8px; background-color: #deeaf6;">DEFINISI</th>
-                        <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">R</th>
-                        <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">K</th>
-                        <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">C</th>
-                        <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">B</th>
-                        <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">T</th>
-                    </tr>
+                # Define a function to determine the position of 'X'
+                def get_x_position(value):
+                    if value == "R":
+                        return ["X", "", "", "", ""]
+                    elif value == "K":
+                        return ["", "X", "", "", ""]
+                    elif value == "C":
+                        return ["", "", "X", "", ""]
+                    elif value == "B":
+                        return ["", "", "", "X", ""]
+                    elif value == "T":
+                        return ["", "", "", "", "X"]
+                    return ["", "", "", "", ""]
 
-                    <tr>
-                        <td colspan="8" style="background-color: #fbe4d5; text-align: center; border: 1px solid black;">KEMAMPUAN INTELEKTUAL</td>
-                    </tr>
-                    <tr>
-                        <td style="text-align: center; background-color: #deeaf6;">1.</td>
-                        <td>Logika Berpikir</td>
-                        <td>Kemampuan untuk berpikir secara logis dan sistematis.</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;">X</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                    </tr>
-                    <tr>
-                        <td style="text-align: center; background-color: #deeaf6;">2.</td>
-                        <td>Daya Analisa</td>
-                        <td>Kemampuan untuk melihat permasalahan dan memahami hubungan sebab akibat permasalahan.</td>
-                        <td style="text-align: center;">X</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                    </tr>
-                    <tr>
-                        <td style="text-align: center; background-color: #deeaf6;">3.</td>
-                        <td>Kemampuan Numerikal</td>
-                        <td>Kemampuan untuk berpikir praktis dalam memahami konsep angka dan hitungan.</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;">X</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                    </tr>
-                    <tr>
-                        <td style="text-align: center; background-color: #deeaf6;">4.</td>
-                        <td>Kemampuan Verbal</td>
-                        <td>Kemampuan untuk memahami konsep dan pola dalam bentuk kata dan mengekspresikan gagasan secara verbal.</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;">X</td>
-                        <td style="text-align: center;"></td>
-                    </tr>
-                    <tr>
-                        <td colspan="8" style="background-color: #fbe4d5; text-align: center;">SIKAP DAN CARA KERJA</td>
-                    </tr>
-                    <tr>
-                        <td style="text-align: center; background-color: #deeaf6;">5.</td>
-                        <td>Orientasi Hasil</td>
-                        <td>Kemampuan untuk mempertahankan komitmen untuk menyelesaikan tugas secara bertanggung jawab dan memperhatikan keterhubungan antara perencanaan dan hasil kerja.</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;">X</td>
-                        <td style="text-align: center;"></td>
-                    </tr>
-                    <tr>
-                        <td style="text-align: center; background-color: #deeaf6;">6.</td>
-                        <td>Fleksibilitas</td>
-                        <td>Kemampuan untuk menyesuaikan diri dalam menghadapi permasalahan.</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;">X</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                    </tr>
-                    <tr>
-                        <td style="text-align: center; background-color: #deeaf6;">7.</td>
-                        <td>Sistematika Kerja</td>
-                        <td>Kemampuan untuk merencanakan hingga mengorganisasikan cara kerja dalam proses penyelesaian pekerjaannya.</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;">X</td>
-                        <td style="text-align: center;"></td>
-                    </tr>
-                    <tr>
-                        <td colspan="8" style="background-color: #fbe4d5; text-align: center;">KEPRIBADIAN</td>
-                    </tr>
-                    <tr>
-                        <td style="text-align: center; background-color: #deeaf6;">8.</td>
-                        <td>Motivasi Berprestasi</td>
-                        <td>Kemampuan untuk menunjukkan prestasi dan mencapai target.</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;">X</td>
-                    </tr>
-                    <tr>
-                        <td style="text-align: center; background-color: #deeaf6;">9.</td>
-                        <td>Kerjasama</td>
-                        <td>Kemampuan untuk menjalin, membina dan mengoptimalkan hubungan kerja yang efektif demi tercapainya tujuan bersama.</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;">X</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                    </tr>
-                    <tr>
-                        <td style="text-align: center; background-color: #deeaf6;">10.</td>
-                        <td>Keterampilan Interpersonal</td>
-                        <td>Kemampuan untuk menjalin hubungan sosial dan mampu memahami kebutuhan orang lain.</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;">X</td>
-                        <td style="text-align: center;"></td>
-                    </tr>
-                    <tr>
-                        <td style="text-align: center; background-color: #deeaf6;">11.</td>
-                        <td>Stabilitas Emosi</td>
-                        <td>Kemampuan untuk memahami dan mengontrol emosi.</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;">X</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                    </tr>
-                    <tr>
-                        <td colspan="8" style="background-color: #fbe4d5; text-align: center;">KEMAMPUAN BELAJAR</td>
-                    </tr>
-                    <tr>
-                        <td style="text-align: center; background-color: #deeaf6;">12.</td>
-                        <td>Pengembangan Diri</td>
-                        <td>Kemampuan untuk meningkatkan pengetahuan dan menyempurnakan keterampilan diri.</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;">X</td>
-                    </tr>
-                    <tr>
-                        <td style="text-align: center; background-color: #deeaf6;">13.</td>
-                        <td>Mengelola Perubahan</td>
-                        <td>Kemampuan dalam menyesuaikan diri dengan situasi yang baru.</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;">X</td>
-                        <td style="text-align: center;"></td>
-                        <td style="text-align: center;"></td>
-                    </tr>
-                    <tr style="border-top: 1px solid black;">
-                        <td colspan="8" style="text-align: center; padding: 2px; font-family: Arial; font-size: 11px; background-color: #deeaf6;">
-                            <div style="display: inline-block; width: 100%;">
-                                T : Tinggi&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                                B : Baik&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                                C : Cukup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                                K : Kurang&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                                R : Rendah
-                            </div>
-                        </td>
-                    </tr>
-                </table>
-            """
+                # Get values for each psychological aspect
+                daya_analisa = row_data.get("Daya Analisa/ AN", "")
+                kemampuan_numerik = row_data.get("Kemampuan Numerik/ RA ZR", "")
+                kemampuan_verbal = row_data.get("Kemampuan Verbal/WA GE", "")
+                fleksibilitas = row_data.get("Fleksibilitas/ T V", "")
+                sistematika_kerja = row_data.get("Sistematika Kerja/ cd", "")
+                inisiatif = row_data.get("Inisiatif/W", "")
+                stabilitas_emosi = row_data.get("Stabilitas Emosi / E", "")
+                komunikasi = row_data.get("Komunikasi / B O", "")
+                keterampilan_interpersonal = row_data.get("Keterampilan Interpersonal / S O", "")
+                kerjasama = row_data.get("Kerjasama / B X", "")
+
+                # Add psikogram table with dynamic 'X' positions
+                html_content += f"""
+                    <table class="psikogram" style="width: 100%; margin-top: 20px; border-collapse: collapse; border: 1px solid black;">
+                        <tr>
+                            <th colspan="8" style="text-align: center; padding: 8px; background-color: #deeaf6; border: 1px solid black;">PSIKOGRAM</th>
+                        </tr>
+                        <tr>
+                            <th style="width: 5%; border: 1px solid black; padding: 8px; background-color: #deeaf6;">NO</th>
+                            <th style="width: 15%; border: 1px solid black; padding: 8px; background-color: #deeaf6;">ASPEK<br>PSIKOLOGIS</th>
+                            <th style="width: 40%; border: 1px solid black; padding: 8px; background-color: #deeaf6;">DEFINISI</th>
+                            <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">R</th>
+                            <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">K</th>
+                            <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">C</th>
+                            <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">B</th>
+                            <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">T</th>
+                        </tr>
+
+                        <tr>
+                            <td colspan="8" style="background-color: #fbe4d5; text-align: center; border: 1px solid black;">KEMAMPUAN INTELEKTUAL</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; background-color: #deeaf6;">1.</td>
+                            <td>Logika Berpikir</td>
+                            <td>Kemampuan untuk berpikir secara logis dan sistematis.</td>
+                            <td style="text-align: center;">{get_x_position(daya_analisa)[0]}</td>
+                            <td style="text-align: center;">{get_x_position(daya_analisa)[1]}</td>
+                            <td style="text-align: center;">{get_x_position(daya_analisa)[2]}</td>
+                            <td style="text-align: center;">{get_x_position(daya_analisa)[3]}</td>
+                            <td style="text-align: center;">{get_x_position(daya_analisa)[4]}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; background-color: #deeaf6;">2.</td>
+                            <td>Daya Analisa</td>
+                            <td>Kemampuan untuk melihat permasalahan dan memahami hubungan sebab akibat permasalahan.</td>
+                            <td style="text-align: center;">{get_x_position(daya_analisa)[0]}</td>
+                            <td style="text-align: center;">{get_x_position(daya_analisa)[1]}</td>
+                            <td style="text-align: center;">{get_x_position(daya_analisa)[2]}</td>
+                            <td style="text-align: center;">{get_x_position(daya_analisa)[3]}</td>
+                            <td style="text-align: center;">{get_x_position(daya_analisa)[4]}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; background-color: #deeaf6;">3.</td>
+                            <td>Kemampuan Numerikal</td>
+                            <td>Kemampuan untuk berpikir praktis dalam memahami konsep angka dan hitungan.</td>
+                            <td style="text-align: center;">{get_x_position(kemampuan_numerik)[0]}</td>
+                            <td style="text-align: center;">{get_x_position(kemampuan_numerik)[1]}</td>
+                            <td style="text-align: center;">{get_x_position(kemampuan_numerik)[2]}</td>
+                            <td style="text-align: center;">{get_x_position(kemampuan_numerik)[3]}</td>
+                            <td style="text-align: center;">{get_x_position(kemampuan_numerik)[4]}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; background-color: #deeaf6;">4.</td>
+                            <td>Kemampuan Verbal</td>
+                            <td>Kemampuan untuk memahami konsep dan pola dalam bentuk kata dan mengekspresikan gagasan secara verbal.</td>
+                            <td style="text-align: center;">{get_x_position(kemampuan_verbal)[0]}</td>
+                            <td style="text-align: center;">{get_x_position(kemampuan_verbal)[1]}</td>
+                            <td style="text-align: center;">{get_x_position(kemampuan_verbal)[2]}</td>
+                            <td style="text-align: center;">{get_x_position(kemampuan_verbal)[3]}</td>
+                            <td style="text-align: center;">{get_x_position(kemampuan_verbal)[4]}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="8" style="background-color: #fbe4d5; text-align: center;">SIKAP DAN CARA KERJA</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; background-color: #deeaf6;">5.</td>
+                            <td>Orientasi Hasil</td>
+                            <td>Kemampuan untuk mempertahankan komitmen untuk menyelesaikan tugas secara bertanggung jawab dan memperhatikan keterhubungan antara perencanaan dan hasil kerja.</td>
+                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[0]}</td>
+                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[1]}</td>
+                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[2]}</td>
+                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[3]}</td>
+                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[4]}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; background-color: #deeaf6;">6.</td>
+                            <td>Fleksibilitas</td>
+                            <td>Kemampuan untuk menyesuaikan diri dalam menghadapi permasalahan.</td>
+                            <td style="text-align: center;">{get_x_position(fleksibilitas)[0]}</td>
+                            <td style="text-align: center;">{get_x_position(fleksibilitas)[1]}</td>
+                            <td style="text-align: center;">{get_x_position(fleksibilitas)[2]}</td>
+                            <td style="text-align: center;">{get_x_position(fleksibilitas)[3]}</td>
+                            <td style="text-align: center;">{get_x_position(fleksibilitas)[4]}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; background-color: #deeaf6;">7.</td>
+                            <td>Sistematika Kerja</td>
+                            <td>Kemampuan untuk merencanakan hingga mengorganisasikan cara kerja dalam proses penyelesaian pekerjaannya.</td>
+                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[0]}</td>
+                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[1]}</td>
+                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[2]}</td>
+                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[3]}</td>
+                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[4]}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="8" style="background-color: #fbe4d5; text-align: center;">KEPRIBADIAN</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; background-color: #deeaf6;">8.</td>
+                            <td>Motivasi Berprestasi</td>
+                            <td>Kemampuan untuk menunjukkan prestasi dan mencapai target.</td>
+                            <td style="text-align: center;">{get_x_position(inisiatif)[0]}</td>
+                            <td style="text-align: center;">{get_x_position(inisiatif)[1]}</td>
+                            <td style="text-align: center;">{get_x_position(inisiatif)[2]}</td>
+                            <td style="text-align: center;">{get_x_position(inisiatif)[3]}</td>
+                            <td style="text-align: center;">{get_x_position(inisiatif)[4]}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; background-color: #deeaf6;">9.</td>
+                            <td>Kerjasama</td>
+                            <td>Kemampuan untuk menjalin, membina dan mengoptimalkan hubungan kerja yang efektif demi tercapainya tujuan bersama.</td>
+                            <td style="text-align: center;">{get_x_position(kerjasama)[0]}</td>
+                            <td style="text-align: center;">{get_x_position(kerjasama)[1]}</td>
+                            <td style="text-align: center;">{get_x_position(kerjasama)[2]}</td>
+                            <td style="text-align: center;">{get_x_position(kerjasama)[3]}</td>
+                            <td style="text-align: center;">{get_x_position(kerjasama)[4]}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; background-color: #deeaf6;">10.</td>
+                            <td>Keterampilan Interpersonal</td>
+                            <td>Kemampuan untuk menjalin hubungan sosial dan mampu memahami kebutuhan orang lain.</td>
+                            <td style="text-align: center;">{get_x_position(keterampilan_interpersonal)[0]}</td>
+                            <td style="text-align: center;">{get_x_position(keterampilan_interpersonal)[1]}</td>
+                            <td style="text-align: center;">{get_x_position(keterampilan_interpersonal)[2]}</td>
+                            <td style="text-align: center;">{get_x_position(keterampilan_interpersonal)[3]}</td>
+                            <td style="text-align: center;">{get_x_position(keterampilan_interpersonal)[4]}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; background-color: #deeaf6;">11.</td>
+                            <td>Stabilitas Emosi</td>
+                            <td>Kemampuan untuk memahami dan mengontrol emosi.</td>
+                            <td style="text-align: center;">{get_x_position(stabilitas_emosi)[0]}</td>
+                            <td style="text-align: center;">{get_x_position(stabilitas_emosi)[1]}</td>
+                            <td style="text-align: center;">{get_x_position(stabilitas_emosi)[2]}</td>
+                            <td style="text-align: center;">{get_x_position(stabilitas_emosi)[3]}</td>
+                            <td style="text-align: center;">{get_x_position(stabilitas_emosi)[4]}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="8" style="background-color: #fbe4d5; text-align: center;">KEMAMPUAN BELAJAR</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; background-color: #deeaf6;">12.</td>
+                            <td>Pengembangan Diri</td>
+                            <td>Kemampuan untuk meningkatkan pengetahuan dan menyempurnakan keterampilan diri.</td>
+                            <td style="text-align: center;">{get_x_position(inisiatif)[0]}</td>
+                            <td style="text-align: center;">{get_x_position(inisiatif)[1]}</td>
+                            <td style="text-align: center;">{get_x_position(inisiatif)[2]}</td>
+                            <td style="text-align: center;">{get_x_position(inisiatif)[3]}</td>
+                            <td style="text-align: center;">{get_x_position(inisiatif)[4]}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; background-color: #deeaf6;">13.</td>
+                            <td>Mengelola Perubahan</td>
+                            <td>Kemampuan dalam menyesuaikan diri dengan situasi yang baru.</td>
+                            <td style="text-align: center;">{get_x_position(fleksibilitas)[0]}</td>
+                            <td style="text-align: center;">{get_x_position(fleksibilitas)[1]}</td>
+                            <td style="text-align: center;">{get_x_position(fleksibilitas)[2]}</td>
+                            <td style="text-align: center;">{get_x_position(fleksibilitas)[3]}</td>
+                            <td style="text-align: center;">{get_x_position(fleksibilitas)[4]}</td>
+                        </tr>
+                        <tr style="border-top: 1px solid black;">
+                            <td colspan="8" style="text-align: center; padding: 2px; font-family: Arial; font-size: 11px; background-color: #deeaf6;">
+                                <div style="display: inline-block; width: 100%;">
+                                    T : Tinggi&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                    B : Baik&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                    C : Cukup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                    K : Kurang&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                    R : Rendah
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                """
 
             # Close tables and add footer
             html_content += """

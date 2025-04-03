@@ -2,3 +2,6 @@
 /main.py
 *.xlsx
 *.pdf
+dist/
+build/
+*.spec
