@@ -3,23 +3,40 @@ import pandas as pd
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QPushButton, QFileDialog, QVBoxLayout, 
     QTableWidget, QTableWidgetItem, QLabel, QHBoxLayout, QLineEdit,
-    QGridLayout, QGroupBox, QFormLayout, QHeaderView, QDialog, QRadioButton, QDialogButtonBox
+    QGridLayout, QGroupBox, QFormLayout, QHeaderView, QDialog, 
+    QRadioButton, QDialogButtonBox, QCalendarWidget, QMessageBox,
+    QComboBox, QScrollArea
 )
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QCalendarWidget
+from PyQt5.QtGui import (
+    QFont, QTextDocument, QPageSize, QPageLayout
+)
+from PyQt5.QtCore import (
+    Qt, QEventLoop, QSizeF, QMarginsF
+)
+from PyQt5.QtPrintSupport import QPrinter, QPrinterInfo, QPrintDialog, QPrintPreviewDialog
+from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 class ExcelViewerApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Aplikasi Laporan Psikologi")
-        self.setGeometry(100, 100, 1400, 800)
+        # Set window size to nearly fullscreen (90% of screen size)
+        screen = QApplication.primaryScreen()
+        screen_size = screen.availableGeometry()
+        width = int(screen_size.width() * 0.9)
+        height = int(screen_size.height() * 0.9)
+        self.setGeometry(
+            (screen_size.width() - width) // 2,  # Center horizontally
+            (screen_size.height() - height) // 2, # Center vertically 
+            width,
+            height
+        )
         # Updated columns based on the images provided
         self.columns = [
             "No", "No Tes", "TGL Lahir", "JK", "Nama Peserta", 
             "IQ", "Konkrit Praktis", "Verbal", "Flexibilitas Pikir", 
             "Daya Abstraksi Verbal", "Berpikir Praktis", "Berpikir Teoritis", 
-            "Memori", "WA GE", "RA ZR", "IQ KLASIFIKASI",
+            "Memori", "WA GE", "RA ZR", "KLASIFIKASI",
             "N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", 
             "C (Coding)", "D", "R", "Z", "E", "K", "F", "W", "CD", "TV", "BO", "SO", "BX"
         ]
@@ -29,9 +46,24 @@ class ExcelViewerApp(QWidget):
         self.df = pd.DataFrame(columns=self.columns)
 
     def initUI(self):
-        main_layout = QVBoxLayout()
+        # Create scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        
+        # Create container widget for scroll area
+        container = QWidget()
+        
+        # Create main layout
+        main_layout = QVBoxLayout(container)
         main_layout.setSpacing(20)
         main_layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Set container as scroll area widget
+        scroll.setWidget(container)
+        
+        # Create layout for the main window
+        window_layout = QVBoxLayout(self)
+        window_layout.addWidget(scroll)
 
         # File Selection Section
         file_group = QGroupBox("File Excel")
@@ -42,10 +74,11 @@ class ExcelViewerApp(QWidget):
         self.label.setFont(QFont("Arial", 10))
         file_layout.addWidget(self.label)
 
-        self.btn_select = QPushButton("Pilih File Excel")
+        self.btn_select = QPushButton("Pilih File Excel") 
         self.btn_select.setFont(QFont("Arial", 10))
         self.btn_select.setFixedHeight(35)
         self.btn_select.clicked.connect(self.load_excel)
+        # Remove automatic disable - now handled in load_excel() based on file selection
         file_layout.addWidget(self.btn_select)
         
         file_group.setLayout(file_layout)
@@ -133,14 +166,26 @@ class ExcelViewerApp(QWidget):
         self.btn_add_update = QPushButton("Tambah / Edit Data")
         self.btn_add_update.setFont(QFont("Arial", 10))
         self.btn_add_update.setFixedHeight(35)
+        self.btn_add_update.setFixedWidth(200) # Set fixed width for the button
         self.btn_add_update.clicked.connect(self.add_or_update_row)
-        main_layout.addWidget(self.btn_add_update)
+        self.btn_add_update.setEnabled(False) # Initially disabled
+        
+        # Right-align the button in the layout
+        button_container = QWidget()
+        button_layout = QHBoxLayout(button_container)
+        button_layout.addStretch() # Push button to right
+        button_layout.addWidget(self.btn_add_update)
+        button_layout.setContentsMargins(0, 0, 20, 0) # Add right margin
+        main_layout.addWidget(button_container)
+        
+        # Enable button when file is loaded
+        self.btn_select.clicked.connect(lambda: self.btn_add_update.setEnabled(True))
 
         # Add toggle buttons for each group
         toggle_layout = QHBoxLayout()
         toggle_personal = QPushButton("Toggle Personal Information")
         toggle_personal.setCheckable(True)
-        toggle_personal.setChecked(True)
+        toggle_personal.setChecked(False)  # Initially unchecked
         toggle_personal.setFont(QFont("Arial", 10))
         toggle_personal.setFixedHeight(35)
         toggle_personal.toggled.connect(lambda checked: personal_group.setVisible(checked))
@@ -148,7 +193,7 @@ class ExcelViewerApp(QWidget):
         
         toggle_ist = QPushButton("Toggle IST")
         toggle_ist.setCheckable(True)
-        toggle_ist.setChecked(True)
+        toggle_ist.setChecked(False)  # Initially unchecked
         toggle_ist.setFont(QFont("Arial", 10))
         toggle_ist.setFixedHeight(35)
         toggle_ist.toggled.connect(lambda checked: ist_group.setVisible(checked))
@@ -156,13 +201,39 @@ class ExcelViewerApp(QWidget):
         
         toggle_papikostick = QPushButton("Toggle PAPIKOSTICK")
         toggle_papikostick.setCheckable(True)
-        toggle_papikostick.setChecked(True)
+        toggle_papikostick.setChecked(False)  # Initially unchecked
         toggle_papikostick.setFont(QFont("Arial", 10))
         toggle_papikostick.setFixedHeight(35)
         toggle_papikostick.toggled.connect(lambda checked: papikostick_group.setVisible(checked))
         toggle_layout.addWidget(toggle_papikostick)
         
+        # Initially hide all groups
+        personal_group.setVisible(False)
+        ist_group.setVisible(False)
+        papikostick_group.setVisible(False)
+        
         main_layout.addLayout(toggle_layout)
+
+        # Search Section
+        search_group = QGroupBox("Pencarian")
+        search_group.setFont(QFont("Arial", 11, QFont.Bold))
+        search_layout = QHBoxLayout()
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Cari data...")
+        self.search_input.setFont(QFont("Arial", 10))
+        self.search_input.setFixedHeight(30)
+        self.search_input.textChanged.connect(self.search_table)
+        search_layout.addWidget(self.search_input)
+
+        self.search_column = QComboBox()
+        self.search_column.setFont(QFont("Arial", 10))
+        self.search_column.setFixedHeight(30)
+        self.search_column.addItems(["Semua Kolom"] + self.columns)
+        search_layout.addWidget(self.search_column)
+
+        search_group.setLayout(search_layout)
+        main_layout.addWidget(search_group)
 
         # Table Section
         table_group = QGroupBox("Data Hasil")
@@ -190,18 +261,52 @@ class ExcelViewerApp(QWidget):
         self.btn_print.clicked.connect(self.print_selected_row)
         button_layout.addWidget(self.btn_print)
 
+        # Add Preview PDF button
+        self.btn_preview_pdf = QPushButton("Preview PDF")
+        self.btn_preview_pdf.setFont(QFont("Arial", 10))
+        self.btn_preview_pdf.setFixedHeight(35)
+        self.btn_preview_pdf.clicked.connect(self.preview_pdf)
+        button_layout.addWidget(self.btn_preview_pdf)
+
         self.btn_save_excel = QPushButton("Simpan Perubahan ke Excel")
         self.btn_save_excel.setFont(QFont("Arial", 10))
         self.btn_save_excel.setFixedHeight(35)
         self.btn_save_excel.clicked.connect(self.save_to_excel)
         button_layout.addWidget(self.btn_save_excel)
-        
-        
+                
         table_layout.addLayout(button_layout)
         table_group.setLayout(table_layout)
         main_layout.addWidget(table_group)
 
         self.setLayout(main_layout)
+
+    def search_table(self):
+        # Check if Excel file has been loaded
+        if not hasattr(self, 'excel_file_path') or not self.excel_file_path:
+            QMessageBox.warning(self, "Warning", "Please load an Excel file first!")
+            return
+            
+        search_text = self.search_input.text().lower()
+        selected_column = self.search_column.currentText()
+
+        for row in range(self.table.rowCount()):
+            row_visible = False
+            
+            if selected_column == "Semua Kolom":
+                # Search in all columns
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row, col)
+                    if item and search_text in item.text().lower():
+                        row_visible = True
+                        break
+            else:
+                # Search in selected column
+                col_idx = self.columns.index(selected_column)
+                item = self.table.item(row, col_idx)
+                if item and search_text in item.text().lower():
+                    row_visible = True
+
+            self.table.setRowHidden(row, not row_visible)
 
     def add_toggle_button(self, layout, group, text):
         toggle_button = QPushButton(text)
@@ -283,6 +388,7 @@ class ExcelViewerApp(QWidget):
         main_layout.addWidget(table_group)
 
         self.setLayout(main_layout)
+        
     def populate_fields_from_selection(self):
         selected_row = self.table.currentRow()
         if selected_row >= 0:
@@ -311,12 +417,19 @@ class ExcelViewerApp(QWidget):
                     field.setText(row_data.get(self.columns[col_idx], ""))
 
     def load_excel(self):
+        
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(self, "Pilih File Excel", "", "Excel Files (*.xlsx);;All Files (*)", options=options)
 
-        if file_path:
+        # Enable the button if user cancels file selection
+        if not file_path:
+            self.btn_select.setEnabled(True)
+            return
+
+        try:
             self.label.setText(f"File: {file_path}")
             self.excel_file_path = file_path
+            self.btn_select.setEnabled(False)
             
             # **🔹 Membaca seluruh sheet dalam file Excel**
             self.excel_data = pd.read_excel(file_path, sheet_name=None)  # Baca semua sheet
@@ -326,15 +439,23 @@ class ExcelViewerApp(QWidget):
                 self.sheet1_data = self.excel_data["Sheet1"]
             else:
                 print("Sheet1 tidak ditemukan!")
+                self.btn_select.setEnabled(True)
+                return
 
             if "Sheet2" in self.excel_data:
                 self.sheet2_data = self.excel_data["Sheet2"]
             else:
                 print("Sheet2 tidak ditemukan!")
+                self.btn_select.setEnabled(True)
+                return
 
             # **🔹 Proses data setelah membaca**
             self.process_excel(file_path)
-
+            
+        except Exception as e:
+            print(f"Error loading file: {e}")
+            self.btn_select.setEnabled(True)
+            QMessageBox.critical(self, "Error", "Failed to load Excel file. Please try again.")
     def process_excel(self, file_path):
         try:
             # 🔹 Baca semua sheet dalam file Excel
@@ -346,12 +467,16 @@ class ExcelViewerApp(QWidget):
             else:
                 print("Sheet1 tidak ditemukan!")
                 df_sheet1 = None
+                self.btn_select.setEnabled(True)
+                return
 
             if "Sheet2" in sheets:
                 df_sheet2 = sheets["Sheet2"]
             else:
                 print("Sheet2 tidak ditemukan!")
                 df_sheet2 = None
+                self.btn_select.setEnabled(True)
+                return
 
             # 🔹 Proses Sheet1 (jika ada)
             if df_sheet1 is not None:
@@ -394,6 +519,8 @@ class ExcelViewerApp(QWidget):
                     self.show_table(self.df_sheet1)
                 else:
                     print("Could not find the start of data in Sheet1")
+                    self.btn_select.setEnabled(True)
+                    return
 
             # 🔹 Proses Sheet2 (jika ada)
             if df_sheet2 is not None:
@@ -406,7 +533,8 @@ class ExcelViewerApp(QWidget):
             print(f"Error loading Excel file: {e}")
             import traceback
             traceback.print_exc()
-
+            self.btn_select.setEnabled(True)
+            QMessageBox.critical(self, "Error", "Failed to process Excel file. Please try again.")
 
     def show_table(self, df):
         try:
@@ -964,6 +1092,797 @@ class ExcelViewerApp(QWidget):
             print(f"Data berhasil disimpan ke {new_path}")
         except Exception as e:
             print(f"Error saving to Excel: {e}")
+
+    def get_column_index(self, column_name):
+        # Search for exact match first
+        for i in range(self.table.columnCount()):
+            header = self.table.horizontalHeaderItem(i)
+            if header and header.text() == column_name:
+                return i
+                
+        # If no exact match, try partial match
+        for i in range(self.table.columnCount()):
+            header = self.table.horizontalHeaderItem(i)
+            if header and column_name.strip() in header.text():
+                return i
+                
+        # If no match found, return -1
+        print(f"Column '{column_name}' not found")
+        return -1
+
+    def preview_pdf(self):
+        try:
+            # Check if Excel file has been loaded
+            if not hasattr(self, 'excel_file_path') or not self.excel_file_path:
+                QMessageBox.warning(self, "Warning", "Please load an Excel file first!")
+                return
+
+            # Check if a row is selected
+            selected_row = self.table.currentRow()
+            if selected_row < 0:
+                QMessageBox.warning(self, "Warning", "Please select a row to preview first!")
+                return
+
+            # Get column indices and data
+            iq_col = self.get_column_index("IQ")
+            nama_col = self.get_column_index("Nama Peserta")
+            tgl_lahir_col = self.get_column_index("TGL Lahir")
+
+            # Get data from selected row
+            iq_val = self.table.item(selected_row, iq_col)
+            iq_value = iq_val.text() if iq_val else "0"  # Simplified to directly use the text value
+            
+            nama_val = self.table.item(selected_row, nama_col)
+            nama = nama_val.text() if nama_val else ""
+            tgl_lahir_val = self.table.item(selected_row, tgl_lahir_col)
+            tgl_lahir = tgl_lahir_val.text() if tgl_lahir_val else ""
+
+            # For debugging
+            print(f"IQ Value from table: {iq_value}")            
+            # Create HTML content
+            html_content = """
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    @page {
+                        size: A4;
+                        margin: 1cm;
+                    }
+                    body { 
+                        font-family: Arial, sans-serif;
+                        padding: 20px;
+                        width: 21cm;
+                        min-height: 29.7cm;
+                        margin: 0 auto;
+                        background: white;
+                    }
+                    @media print {
+                        body {
+                            width: auto;
+                            height: auto;
+                            margin: 0;
+                            padding: 0;
+                        }
+                        .page {
+                            width: 21cm;
+                            min-height: 29.7cm;
+                            padding: 1cm;
+                            margin: 0;
+                            page-break-after: always;
+                        }
+                        .page:last-child {
+                            page-break-after: avoid;
+                        }
+                        .page-break {
+                            page-break-before: always;
+                            margin: 0;
+                            padding: 0;
+                        }
+                    }
+                    .header { text-align: center; margin-bottom: 20px; }
+                    .title { font-size: 16px; font-weight: bold; margin: 10px 0; }
+                    .info-table { width: 100%; margin-bottom: 15px; border-spacing: 0; table-layout:fixed;  }
+                    .info-table td { padding: 3px; vertical-align: top; width: 25%;  }
+                    .main-table, .psikogram { 
+                        width: 100%; 
+                        border-collapse: collapse; 
+                        margin-bottom: 20px;
+                    }
+                    .main-table th, .main-table td, .psikogram th, .psikogram td { 
+                        border: 1px solid black; 
+                        padding: 8px; 
+                        text-align: center;
+                    }
+                    .psikogram td { text-align: left; }
+                    .main-table th, .psikogram th { background-color: #f2f2f2; }
+                    .center-text { text-align: center; }
+                    .footer { text-align: center; font-style: italic; margin-top: 20px; }
+                    .psikogram th, .psikogram td { 
+                        padding: 10px; 
+                        font-size: 12px; 
+                        vertical-align: middle;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="title">HASIL PEMERIKSAAN PSIKOLOGIS</div>
+                    <div>(Asesmen Intelegensi, Kepribadian dan Minat)</div>
+                </div>
+            """
+
+            # Add personal info
+            html_content += f"""
+            <div style="width: 100%; margin: 0 auto;">
+                <table class="info-table">
+                <tr>
+                    <td width="20%">NAMA</td>
+                    <td width="30%">: {nama}</td>
+                    <td width="20%">PERUSAHAAN</td>
+                    <td width="30%">: PT. BAM</td>
+                </tr>
+                <tr>
+                    <td>TANGGAL LAHIR</td>
+                    <td>: {tgl_lahir}</td>
+                    <td>TANGGAL TES</td>
+                    <td>: 26 Februari 2025</td>
+                </tr>
+                <tr>
+                    <td>PEMERIKSA</td>
+                    <td>: Chitra Ananda Mulia, M.Psi., Psikolog</td>
+                    <td>LEMBAGA</td>
+                    <td>: BEHAVYOURS</td>
+                </tr>
+                <tr>
+                    <td>ALAMAT LEMBAGA</td>
+                    <td colspan="3">: Jl. Patal Senayan No.01</td>
+                </tr>
+            </table>
+            """
+                
+            # Add IQ Classification table
+            html_content += f"""
+                    <div style="width: 100%; margin: 0 auto;">
+                        <table style="width: 100%; border-collapse: separate; border-spacing: 0 0;">
+                            <tr>
+                                <td style="width: 25%; padding-right: 15px; vertical-align: top;">
+                                    <table style="width: 100%; border-collapse: collapse; border: 1px solid black;">
+                                        <tr>
+                                            <th style="border-bottom: 1px solid black; padding: 8px; text-align: center; background-color: #f7caac;">KECERDASAN UMUM</th>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <table style="width: 100%; border-collapse: collapse;">
+                                                    <tr>
+                                                        <td style="border-right: 1px solid black; padding: 8px; text-align: left;">Taraf<br>Kecerdasan<br>IQ</td>
+                                                        <td style="padding: 8px; text-align: center;">{iq_value}</td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                                <td style="width: 75%; vertical-align: top;">
+                                    <table style="width: 100%; border-collapse: collapse;">
+                                        <tr>
+                                            <th colspan="5" style="border: 1px solid black; padding: 4px; text-align: center; background-color: #ffceb4;">KLASIFIKASI KECERDASAN IQ</th>
+                                        </tr>
+                                        <tr>
+                                            <td style="border-left: 1px solid black; border-right: 1px solid black; padding: 4px; text-align: center;">
+                                                Rendah
+                                            </td>
+                                            <td style="border-left: 1px solid black; border-right: 1px solid black; padding: 4px; text-align: center;">
+                                                Dibawah<br>Rata-Rata
+                                            </td>
+                                            <td style="border-left: 1px solid black; border-right: 1px solid black; padding: 4px; text-align: center;">
+                                                Rata-Rata
+                                            </td>
+                                            <td style="border-left: 1px solid black; border-right: 1px solid black; padding: 4px; text-align: center;">
+                                                Diatas Rata-<br>Rata
+                                            </td>
+                                            <td style="border-left: 1px solid black; border-right: 1px solid black; padding: 4px; text-align: center;">
+                                                Superior
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="border-left: 1px solid black; border-right: 1px solid black; border-bottom: 1px solid black; padding: 4px; text-align: center;">&lt; 79</td>
+                                            <td style="border-left: 1px solid black; border-right: 1px solid black; border-bottom: 1px solid black; padding: 4px; text-align: center;">80 - 89</td>
+                                            <td style="border-left: 1px solid black; border-right: 1px solid black; border-bottom: 1px solid black; padding: 4px; text-align: center;">90 - 109</td>
+                                            <td style="border-left: 1px solid black; border-right: 1px solid black; border-bottom: 1px solid black; padding: 4px; text-align: center;">110 - 119</td>
+                                            <td style="border-left: 1px solid black; border-right: 1px solid black; border-bottom: 1px solid black; padding: 4px; text-align: center;">&gt; 120</td>
+                                        </tr>
+                                """
+
+           # Add IQ data
+            iq_val = self.table.item(selected_row, self.get_column_index("IQ"))
+            iq_class = self.table.item(selected_row, self.get_column_index("KLASIFIKASI"))
+            if iq_val and iq_class:
+                    html_content += f"""
+                        <tr>
+                            <td style="border-right: 1px solid black; padding: 8px; text-align: center;">{'X' if iq_class.text() == 'Rendah' else ''}</td>
+                            <td style="border-right: 1px solid black; padding: 8px; text-align: center;">{'X' if iq_class.text() == 'Di Bawah Rata-rata' else ''}</td>
+                            <td style="border-right: 1px solid black; padding: 8px; text-align: center;">{'X' if iq_class.text() == 'Rata-rata' else ''}</td>
+                            <td style="border-right: 1px solid black; padding: 8px; text-align: center;">{'X' if iq_class.text() == 'Di Atas Rata-rata' else ''}</td>
+                            <td style="padding: 8px; text-align: center;">{'X' if iq_class.text() == 'Superior' else ''}</td>
+                        </tr>
+                    """
+
+                    html_content += """
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+                
+                <table class="psikogram" style="width: 100%; margin-top: 20px; border-collapse: collapse; border: 1px solid black;">
+                    <tr>
+                        <th colspan="8" style="text-align: center; padding: 8px; background-color: #deeaf6; border: 1px solid black;">PSIKOGRAM</th>
+                    </tr>
+                    <tr>
+                        <th style="width: 5%; border: 1px solid black; padding: 8px; background-color: #deeaf6;">NO</th>
+                        <th style="width: 15%; border: 1px solid black; padding: 8px; background-color: #deeaf6;">ASPEK<br>PSIKOLOGIS</th>
+                        <th style="width: 40%; border: 1px solid black; padding: 8px; background-color: #deeaf6;">DEFINISI</th>
+                        <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">R</th>
+                        <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">K</th>
+                        <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">C</th>
+                        <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">B</th>
+                        <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">T</th>
+                    </tr>
+
+                    <tr>
+                        <td colspan="8" style="background-color: #fbe4d5; text-align: center; border: 1px solid black;">KEMAMPUAN INTELEKTUAL</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; background-color: #deeaf6;">1.</td>
+                        <td>Logika Berpikir</td>
+                        <td>Kemampuan untuk berpikir secara logis dan sistematis.</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;">X</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; background-color: #deeaf6;">2.</td>
+                        <td>Daya Analisa</td>
+                        <td>Kemampuan untuk melihat permasalahan dan memahami hubungan sebab akibat permasalahan.</td>
+                        <td style="text-align: center;">X</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; background-color: #deeaf6;">3.</td>
+                        <td>Kemampuan Numerikal</td>
+                        <td>Kemampuan untuk berpikir praktis dalam memahami konsep angka dan hitungan.</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;">X</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; background-color: #deeaf6;">4.</td>
+                        <td>Kemampuan Verbal</td>
+                        <td>Kemampuan untuk memahami konsep dan pola dalam bentuk kata dan mengekspresikan gagasan secara verbal.</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;">X</td>
+                        <td style="text-align: center;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="8" style="background-color: #fbe4d5; text-align: center;">SIKAP DAN CARA KERJA</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; background-color: #deeaf6;">5.</td>
+                        <td>Orientasi Hasil</td>
+                        <td>Kemampuan untuk mempertahankan komitmen untuk menyelesaikan tugas secara bertanggung jawab dan memperhatikan keterhubungan antara perencanaan dan hasil kerja.</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;">X</td>
+                        <td style="text-align: center;"></td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; background-color: #deeaf6;">6.</td>
+                        <td>Fleksibilitas</td>
+                        <td>Kemampuan untuk menyesuaikan diri dalam menghadapi permasalahan.</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;">X</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; background-color: #deeaf6;">7.</td>
+                        <td>Sistematika Kerja</td>
+                        <td>Kemampuan untuk merencanakan hingga mengorganisasikan cara kerja dalam proses penyelesaian pekerjaannya.</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;">X</td>
+                        <td style="text-align: center;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="8" style="background-color: #fbe4d5; text-align: center;">KEPRIBADIAN</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; background-color: #deeaf6;">8.</td>
+                        <td>Motivasi Berprestasi</td>
+                        <td>Kemampuan untuk menunjukkan prestasi dan mencapai target.</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;">X</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; background-color: #deeaf6;">9.</td>
+                        <td>Kerjasama</td>
+                        <td>Kemampuan untuk menjalin, membina dan mengoptimalkan hubungan kerja yang efektif demi tercapainya tujuan bersama.</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;">X</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; background-color: #deeaf6;">10.</td>
+                        <td>Keterampilan Interpersonal</td>
+                        <td>Kemampuan untuk menjalin hubungan sosial dan mampu memahami kebutuhan orang lain.</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;">X</td>
+                        <td style="text-align: center;"></td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; background-color: #deeaf6;">11.</td>
+                        <td>Stabilitas Emosi</td>
+                        <td>Kemampuan untuk memahami dan mengontrol emosi.</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;">X</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="8" style="background-color: #fbe4d5; text-align: center;">KEMAMPUAN BELAJAR</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; background-color: #deeaf6;">12.</td>
+                        <td>Pengembangan Diri</td>
+                        <td>Kemampuan untuk meningkatkan pengetahuan dan menyempurnakan keterampilan diri.</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;">X</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; background-color: #deeaf6;">13.</td>
+                        <td>Mengelola Perubahan</td>
+                        <td>Kemampuan dalam menyesuaikan diri dengan situasi yang baru.</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;">X</td>
+                        <td style="text-align: center;"></td>
+                        <td style="text-align: center;"></td>
+                    </tr>
+                    <tr style="border-top: 1px solid black;">
+                        <td colspan="8" style="text-align: center; padding: 2px; font-family: Arial; font-size: 11px; background-color: #deeaf6;">
+                            <div style="display: inline-block; width: 100%;">
+                                T : Tinggi&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                B : Baik&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                C : Cukup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                K : Kurang&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                R : Rendah
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            """
+
+            # Close tables and add footer
+            html_content += """
+                </table>
+                <div class="footer">
+                    Laporan ini bersifat confidential dan diketahui oleh Psikolog
+                </div>
+            </body>
+            </html>
+            """
+
+            # Add page break and second page content
+            html_content += f"""
+                <div class="page-break"></div>
+                <div class="page">
+                    <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                        <tr>
+                            <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">KESIMPULAN</th>
+                        </tr>
+                        <tr>
+                            <td style="width: 20%; padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">KEMAMPUAN INTELEKTUAL</td>
+                            <td style="width: 80%; padding: 8px; text-align: justify; border: 1px solid black;">
+                                Berdasarkan pemeriksaan kemampuan intelektual, diketahui bahwa Sdr. {nama} menunjukkan kapasitas intelektual yang cukup memadai. Ia cukup mampu untuk menganalisis dan membuat kesimpulan yang tidak sepenuhnya didukung oleh bukti. Ia menunjukkan ketelitian dalam mengidentifikasi komponen-komponen penting dari suatu masalah, sehingga pemahaman terhadap hubungan sebab-akibat menjadi terbatas. Selain itu, menunjukkan pemahaman yang kurang memadai terhadap konsep matematis dasar, yang mempengaruhi kemampuan analisa. Namun, menunjukkan pemahaman yang baik terhadap makna makna dalam bahasa, yang mempengaruhi kemampuan ekspresi dalam berkomunikasi secara efektif.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">SIKAP DAN CARA KERJA</td>
+                            <td style="padding: 8px; text-align: justify; border: 1px solid black;">
+                                Berdasarkan pemeriksaan sikap dan cara kerja, diketahui bahwa Sdr. {nama} mampu menyelesaikan tugas-tugas yang diberikan dengan cukup baik meskipun terkadang membutuhkan waktu yang lebih lama. Ia menunjukkan kesulitan dalam beradaptasi dan menyesuaikan diri dengan perubahan, terkadang merasa tidak nyaman dengan hal-hal baru. Kemudian, mampu membuat rencana kerja yang cukup terstruktur, meskipun terkadang membutuhkan pengawasan tambahan.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">KEPRIBADIAN</td>
+                            <td style="padding: 8px; text-align: justify; border: 1px solid black;">
+                                Berdasarkan pemeriksaan kepribadian, diketahui bahwa Sdr. {nama} menunjukkan motivasi yang kuat untuk mencapai target yang ditetapkan, selalu berusaha untuk mencapai ekspektasi. Tak hanya itu, juga menunjukkan usaha yang kurang maksimal dalam berkontribusi pada kelompok, terkadang mengalami tanggung jawab yang diberikan. Ia mampu membina dan mempertahankan hubungan sosial yang cukup baik, meskipun terkadang dalam situasi tertentu. Selain itu, menunjukkan emosi yang cukup stabil dalam menghadapi situasi yang menantang, meskipun terkadang membutuhkan waktu untuk beradaptasi dengan perubahan.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">KEMAMPUAN BELAJAR</td>
+                            <td style="padding: 8px; text-align: justify; border: 1px solid black;">
+                                Berdasarkan pemeriksaan kemampuan belajar, diketahui bahwa Sdr. {nama} menunjukkan inisiatif yang kuat dalam memiliki pengetahuan dan keterampilan diri, giat dalam mencapai hal-hal baru dan berusaha untuk meningkatkan pengetahuan dan keterampilan diri. Namun, terkadang membutuhkan waktu untuk beradaptasi dengan perubahan, yang menunjukkan perlunya perhatian khusus dalam beradaptasi.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2" style="padding: 8px;">
+                                <div style="font-weight: bold; margin: 10px 0; font-size: 12px;">PENGEMBANGAN</div>
+                                <div style="text-align: justify; border: 1px solid black; padding: 8px;">
+                                    Sdr. {nama} masih membutuhkan pengembangan dalam mengidentifikasi pola logis, menarik kesimpulan, dan memperdalami penguasaan hubungan sebab akibat menjadi lebih baik dalam konsep matematis dan butuh memperdalam penggunaan bahasa lebih lanjut. Kemudian, butuh kefokusan agar lebih mudah dalam beradaptasi, dan butuh kontribusi lebih, dan koordinasi dengan kelompok agar mencapai tujuan bersama. Serta mudah diri dengan pada pada hal-hal baru.
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                        <tr>
+                            <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">Kategori Hasil Screening</th>
+                        </tr>
+                        <tr>
+                            <td style="width: 5%; text-align: center; border: 1px solid black; padding: 8px;">X</td>
+                            <td style="padding: 8px; border: 1px solid black;">Tahapan Normal<br><span style="font-size: 10px; color: #666;">Individu menunjukkan adaptasi gejala gangguan mental yang mengganggu fungsi sehari-hari</span></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; border: 1px solid black; padding: 8px;"></td>
+                            <td style="padding: 8px; border: 1px solid black;">Kecenderungan Stress dalam Tekanan<br><span style="font-size: 10px; color: #666;">Dalam situasi yg menimbulkan tekanan dapat berdampak pada kondisi individu & respon emosional yg ditampilkan</span></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; border: 1px solid black; padding: 8px;"></td>
+                            <td style="padding: 8px; border: 1px solid black;">Gangguan<br><span style="font-size: 10px; color: #666;">Individu menunjukkan gejala-gejala gangguan yang dapat mengganggu fungsi sehari-hari</span></td>
+                        </tr>
+                    </table>
+                    
+                    <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                        <tr>
+                            <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">Kesimpulan Keseluruhan</th>
+                        </tr>
+                        <tr>
+                            <td style="width: 8%; text-align: center; border: 1px solid black; padding: 8px;"></td>
+                            <td style="padding: 8px; border: 1px solid black;">LAYAK DIREKOMENDASIKAN</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 8%; text-align: center; border: 1px solid black; padding: 8px;">X</td>
+                            <td style="padding: 8px; border: 1px solid black;">LAYAK DIPERTIMBANGKAN</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; border: 1px solid black; padding: 8px;"></td>
+                            <td style="padding: 8px; border: 1px solid black;">TIDAK DISARANKAN</td>
+                        </tr>
+                    </table>
+                            <div style="position: absolute; bottom: 2cm; width: calc(100% - 4cm); text-align: center; font-style: italic;">
+                        Laporan ini bersifat confidential dan diketahui oleh Psikolog
+                    </div>
+                </div>
+            """
+
+            # Add page break and third page content
+            html_content += f"""
+                <div class="page-break"></div>
+                <div class="page" style="padding: 2cm; font-family: Arial;">
+                    <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                        <img src="behanyours.png" alt="Logo" style="width: 80px; height: auto; margin-right: 20px;">
+                        <div style="flex-grow: 1; text-align: center;">
+                            <div style="font-size: 14px; font-weight: bold;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
+                            <div style="font-size: 12px;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
+                        </div>
+                        <div style="text-align: right; font-size: 12px;">
+                            <div style="font-weight: bold;">RAHASIA</div>
+                            <div>No. 158/02/JMI/2025</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <div style="margin-bottom: 15px;">
+                            <div>
+                                <span style="display: inline-block; width: 120px;">Tanggal</span>
+                                <span>: 26 Februari 2025</span>
+                            </div>
+                            <div style="font-style: italic; font-size: 11px; color: #666;">Date</div>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <div>
+                                <span style="display: inline-block; width: 120px;">Tanda Tangan</span>
+                                <span>: <img src="signature.png" alt="Signature" style="height: 40px; vertical-align: middle;"></span>
+                            </div>
+                            <div style="font-style: italic; font-size: 11px; color: #666;">Signature</div>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <div>
+                                <span style="display: inline-block; width: 120px;">Nama Psikolog</span>
+                                <span>: Chitra Ananda Mulia, M.Psi., Psikolog</span>
+                            </div>
+                            <div style="font-style: italic; font-size: 11px; color: #666;">Psychologist Name</div>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <div>
+                                <span style="display: inline-block; width: 120px;">Nomor STR/SIK</span>
+                                <span>:</span>
+                            </div>
+                            <div style="font-style: italic; font-size: 11px; color: #666;">Registration Number</div>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <div>
+                                <span style="display: inline-block; width: 120px;">Nomor SIPP/SIPPK</span>
+                                <span>: 1564-19-2-2</span>
+                            </div>
+                            <div style="font-style: italic; font-size: 11px; color: #666;">Licence Number</div>
+                        </div>
+                    </div>
+
+                    <div style="position: absolute; bottom: 2cm; width: calc(100% - 4cm); text-align: center; font-style: italic;">
+                        Laporan ini bersifat confidential dan diketahui oleh Psikolog
+                    </div>
+                </div>
+            """
+
+            # Create and show preview dialog
+            preview_dialog = QDialog(self)
+            preview_dialog.setWindowTitle("Preview PDF")
+            
+            # Get screen size
+            screen = QApplication.primaryScreen()
+            screen_size = screen.availableGeometry()
+            
+            # Set dialog size to 90% of screen size
+            dialog_width = int(screen_size.width() * 0.9)
+            dialog_height = int(screen_size.height() * 0.9)
+            preview_dialog.setFixedSize(dialog_width, dialog_height)
+            
+            # Center the dialog on screen
+            preview_dialog.move(
+                (screen_size.width() - dialog_width) // 2,
+                (screen_size.height() - dialog_height) // 2
+            )
+            
+            preview_dialog.setWindowFlags(Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
+            
+            # Create main vertical layout
+            main_layout = QVBoxLayout(preview_dialog)
+            main_layout.setContentsMargins(10, 10, 10, 10)
+            main_layout.setSpacing(10)
+            
+            # Create horizontal layout for preview pages
+            preview_layout = QHBoxLayout()
+            
+            # Create web view for page 1
+            web_view1 = QWebEngineView(preview_dialog)
+            web_view1.setZoomFactor(0.8)
+            web_view1.setFixedWidth(int(dialog_width * 0.3))  # Adjust width to 30% for 3 pages
+            # Split HTML content at page break
+            pages = html_content.split('<div class="page-break"></div>')
+            web_view1.setHtml(pages[0])
+            preview_layout.addWidget(web_view1)
+            
+            # Create web view for page 2
+            web_view2 = QWebEngineView(preview_dialog)
+            web_view2.setZoomFactor(0.8)
+            web_view2.setFixedWidth(int(dialog_width * 0.3))  # Adjust width to 30% for 3 pages
+            if len(pages) > 1:
+                web_view2.setHtml(pages[1])
+            preview_layout.addWidget(web_view2)
+
+            # Create web view for page 3
+            web_view3 = QWebEngineView(preview_dialog)
+            web_view3.setZoomFactor(0.8)
+            web_view3.setFixedWidth(int(dialog_width * 0.3))  # Adjust width to 30% for 3 pages
+            if len(pages) > 2:
+                web_view3.setHtml(pages[2])
+            preview_layout.addWidget(web_view3)
+            
+            # Add preview layout to main layout
+            main_layout.addLayout(preview_layout)
+            
+            # Create button layout for centering
+            button_layout = QHBoxLayout()
+            button_layout.addStretch()
+            
+            # Add save PDF button
+            save_button = QPushButton("Save PDF", preview_dialog)
+            save_button.setFixedHeight(30)
+            save_button.setFixedWidth(200)  # Set fixed width for button
+            save_button.clicked.connect(lambda: self.save_as_pdf(html_content))
+            button_layout.addWidget(save_button)
+            
+            # Add direct print button without preview
+            print_button = QPushButton("Print PDF", preview_dialog)
+            print_button.setFixedHeight(30)
+            print_button.setFixedWidth(200)
+            print_button.clicked.connect(lambda: self.print_pdf(html_content))
+            button_layout.addWidget(print_button)
+            
+            button_layout.addStretch()
+            main_layout.addLayout(button_layout)
+            
+            preview_dialog.exec_()
+            
+        except Exception as e:
+            print(f"Error saat preview: {e}")
+            
+    def print_pdf(self, html_content):
+        try:
+            # Create printer with A4 settings
+            printer = QPrinter(QPrinter.HighResolution)
+            printer.setPageSize(QPageSize(QPageSize.A4))
+            # Set margins using individual float values
+            printer.setPageMargins(10, 10, 10, 10, QPrinter.Millimeter)
+            
+            # Create web view and load content
+            web_view = QWebEngineView()
+            web_view.setHtml(html_content)
+            
+            # Wait for page load
+            loop = QEventLoop()
+            web_view.loadFinished.connect(loop.quit)
+            loop.exec_()
+            
+            # Show print dialog
+            print_dialog = QPrintDialog(printer, self)
+            if print_dialog.exec_() == QPrintDialog.Accepted:
+                def print_finished(success):
+                    if success:
+                        QMessageBox.information(self, "Success", "Document printed successfully")
+                    else:
+                        QMessageBox.warning(self, "Warning", "Print job failed")
+                
+                # Direct print without preview
+                web_view.page().print(printer, print_finished)
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error printing document: {e}")
+            print(f"Print error: {e}")
+
+    def save_as_pdf(self, html_content):
+        try:
+            file_name, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save PDF",
+                "",
+                "PDF Files (*.pdf)"
+            )
+            
+            if file_name:
+                # Create printer with A4 settings
+                printer = QPrinter(QPrinter.HighResolution)
+                printer.setOutputFormat(QPrinter.PdfFormat)
+                printer.setOutputFileName(file_name)
+                printer.setPageSize(QPageSize(QPageSize.A4))
+                
+                # Create web view with A4 dimensions
+                web_view = QWebEngineView()
+                
+                # Update the styles to ensure content fits on one page
+                html_content = html_content.replace('</head>',
+                    '''
+                    <style>
+                        @page {
+                            size: A4;
+                            margin: 1cm;
+                        }
+                        @media print {
+                            body {
+                                width: 210mm;
+                                height: 297mm;
+                                margin: 0;
+                                padding: 1cm;
+                            }
+                            .page {
+                                page-break-after: always;
+                            }
+                            .page:last-child {
+                                page-break-after: avoid;
+                            }
+                        }
+                        body {
+                            margin: 0;
+                            padding: 1cm;
+                            width: 210mm;
+                            height: 297mm;
+                            font-family: Arial, sans-serif;
+                            font-size: 11px;
+                        }
+                        .header {
+                            text-align: center;
+                            margin-bottom: 15px;
+                        }
+                        .header .title {
+                            font-size: 14px;
+                            font-weight: bold;
+                            margin-bottom: 5px;
+                        }
+                        .info-table {
+                            width: 100%;
+                            margin-bottom: 15px;
+                            border-spacing: 0;
+                        }
+                        .info-table td {
+                            padding: 3px;
+                            vertical-align: top;
+                        }
+                        table {
+                            border-collapse: collapse;
+                            width: 100%;
+                        }
+                        .psikogram {
+                            margin-top: 15px;
+                        }
+                        .psikogram th, .psikogram td {
+                            border: 1px solid black;
+                            padding: 4px;
+                            font-size: 11px;
+                        }
+                        .psikogram th {
+                            background-color: #f2f2f2;
+                            text-align: center;
+                        }
+                        .category-header {
+                            background-color: #f8d7da !important;
+                            text-align: center;
+                            font-weight: bold;
+                        }
+                        .footer {
+                            margin-top: 15px;
+                            text-align: center;
+                            font-style: italic;
+                            font-size: 10px;
+                        }
+                        .legend-row td {
+                            text-align: center;
+                            padding: 2px;
+                            font-size: 11px;
+                            border: none;
+                        }
+                    </style>
+                    </head>
+                    ''')                
+                web_view.setHtml(html_content)
+                
+                # Wait for page to load
+                loop = QEventLoop()
+                web_view.loadFinished.connect(loop.quit)
+                loop.exec_()
+                
+                # Print to PDF
+                web_view.page().printToPdf(file_name)
+                
+                QMessageBox.information(self, "Success", "PDF saved successfully!")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error saving PDF: {e}")
+            print(f"Error saving PDF: {e}")
+    
+    def save_pdf_file(self, pdf_data, file_name):
+        try:
+            with open(file_name, 'wb') as f:
+                f.write(pdf_data)
+        except Exception as e:
+            print(f"Error writing PDF file: {e}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
