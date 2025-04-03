@@ -3,7 +3,9 @@ import pandas as pd
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QPushButton, QFileDialog, QVBoxLayout, 
     QTableWidget, QTableWidgetItem, QLabel, QHBoxLayout, QLineEdit,
-    QGridLayout, QGroupBox, QFormLayout, QHeaderView, QDialog, QRadioButton, QDialogButtonBox
+    QGridLayout, QGroupBox, QFormLayout, QHeaderView, QDialog, 
+    QRadioButton, QDialogButtonBox, QCalendarWidget, QMessageBox,
+    QComboBox, QScrollArea
 )
 from PyQt5.QtGui import (
     QFont, QTextDocument, QPageSize, QPageLayout
@@ -22,13 +24,23 @@ class ExcelViewerApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Aplikasi Laporan Psikologi")
-        self.setGeometry(100, 100, 1400, 800)
+        # Set window size to nearly fullscreen (90% of screen size)
+        screen = QApplication.primaryScreen()
+        screen_size = screen.availableGeometry()
+        width = int(screen_size.width() * 0.9)
+        height = int(screen_size.height() * 0.9)
+        self.setGeometry(
+            (screen_size.width() - width) // 2,  # Center horizontally
+            (screen_size.height() - height) // 2, # Center vertically 
+            width,
+            height
+        )
         # Updated columns based on the images provided
         self.columns = [
             "No", "No Tes", "TGL Lahir", "JK", "Nama Peserta", 
             "IQ", "Konkrit Praktis", "Verbal", "Flexibilitas Pikir", 
             "Daya Abstraksi Verbal", "Berpikir Praktis", "Berpikir Teoritis", 
-            "Memori", "WA GE", "RA ZR", "IQ KLASIFIKASI",
+            "Memori", "WA GE", "RA ZR", "KLASIFIKASI",
             "N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", 
             "C (Coding)", "D", "R", "Z", "E", "K", "F", "W", "CD", "TV", "BO", "SO", "BX"
         ]
@@ -38,9 +50,24 @@ class ExcelViewerApp(QWidget):
         self.df = pd.DataFrame(columns=self.columns)
 
     def initUI(self):
-        main_layout = QVBoxLayout()
+        # Create scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        
+        # Create container widget for scroll area
+        container = QWidget()
+        
+        # Create main layout
+        main_layout = QVBoxLayout(container)
         main_layout.setSpacing(20)
         main_layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Set container as scroll area widget
+        scroll.setWidget(container)
+        
+        # Create layout for the main window
+        window_layout = QVBoxLayout(self)
+        window_layout.addWidget(scroll)
 
         # File Selection Section
         file_group = QGroupBox("File Excel")
@@ -51,10 +78,11 @@ class ExcelViewerApp(QWidget):
         self.label.setFont(QFont("Arial", 10))
         file_layout.addWidget(self.label)
 
-        self.btn_select = QPushButton("Pilih File Excel")
+        self.btn_select = QPushButton("Pilih File Excel") 
         self.btn_select.setFont(QFont("Arial", 10))
         self.btn_select.setFixedHeight(35)
         self.btn_select.clicked.connect(self.load_excel)
+        # Remove automatic disable - now handled in load_excel() based on file selection
         file_layout.addWidget(self.btn_select)
         
         file_group.setLayout(file_layout)
@@ -170,7 +198,7 @@ class ExcelViewerApp(QWidget):
         toggle_layout = QHBoxLayout()
         toggle_personal = QPushButton("Toggle Personal Information")
         toggle_personal.setCheckable(True)
-        toggle_personal.setChecked(True)
+        toggle_personal.setChecked(False)  # Initially unchecked
         toggle_personal.setFont(QFont("Arial", 10))
         toggle_personal.setFixedHeight(35)
         toggle_personal.toggled.connect(lambda checked: personal_group.setVisible(checked))
@@ -178,7 +206,7 @@ class ExcelViewerApp(QWidget):
         
         toggle_ist = QPushButton("Toggle IST")
         toggle_ist.setCheckable(True)
-        toggle_ist.setChecked(True)
+        toggle_ist.setChecked(False)  # Initially unchecked
         toggle_ist.setFont(QFont("Arial", 10))
         toggle_ist.setFixedHeight(35)
         toggle_ist.toggled.connect(lambda checked: ist_group.setVisible(checked))
@@ -186,13 +214,39 @@ class ExcelViewerApp(QWidget):
         
         toggle_papikostick = QPushButton("Toggle PAPIKOSTICK")
         toggle_papikostick.setCheckable(True)
-        toggle_papikostick.setChecked(True)
+        toggle_papikostick.setChecked(False)  # Initially unchecked
         toggle_papikostick.setFont(QFont("Arial", 10))
         toggle_papikostick.setFixedHeight(35)
         toggle_papikostick.toggled.connect(lambda checked: papikostick_group.setVisible(checked))
         toggle_layout.addWidget(toggle_papikostick)
         
+        # Initially hide all groups
+        personal_group.setVisible(False)
+        ist_group.setVisible(False)
+        papikostick_group.setVisible(False)
+        
         main_layout.addLayout(toggle_layout)
+
+        # Search Section
+        search_group = QGroupBox("Pencarian")
+        search_group.setFont(QFont("Arial", 11, QFont.Bold))
+        search_layout = QHBoxLayout()
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Cari data...")
+        self.search_input.setFont(QFont("Arial", 10))
+        self.search_input.setFixedHeight(30)
+        self.search_input.textChanged.connect(self.search_table)
+        search_layout.addWidget(self.search_input)
+
+        self.search_column = QComboBox()
+        self.search_column.setFont(QFont("Arial", 10))
+        self.search_column.setFixedHeight(30)
+        self.search_column.addItems(["Semua Kolom"] + self.columns)
+        search_layout.addWidget(self.search_column)
+
+        search_group.setLayout(search_layout)
+        main_layout.addWidget(search_group)
 
         # Table Section
         table_group = QGroupBox("Data Hasil")
@@ -220,18 +274,52 @@ class ExcelViewerApp(QWidget):
         self.btn_print.clicked.connect(self.print_selected_row)
         button_layout.addWidget(self.btn_print)
 
+        # Add Preview PDF button
+        self.btn_preview_pdf = QPushButton("Preview PDF")
+        self.btn_preview_pdf.setFont(QFont("Arial", 10))
+        self.btn_preview_pdf.setFixedHeight(35)
+        self.btn_preview_pdf.clicked.connect(self.preview_pdf)
+        button_layout.addWidget(self.btn_preview_pdf)
+
         self.btn_save_excel = QPushButton("Simpan Perubahan ke Excel")
         self.btn_save_excel.setFont(QFont("Arial", 10))
         self.btn_save_excel.setFixedHeight(35)
         self.btn_save_excel.clicked.connect(self.save_to_excel)
         button_layout.addWidget(self.btn_save_excel)
-        
-        
+                
         table_layout.addLayout(button_layout)
         table_group.setLayout(table_layout)
         main_layout.addWidget(table_group)
 
         self.setLayout(main_layout)
+
+    def search_table(self):
+        # Check if Excel file has been loaded
+        if not hasattr(self, 'excel_file_path') or not self.excel_file_path:
+            QMessageBox.warning(self, "Warning", "Please load an Excel file first!")
+            return
+            
+        search_text = self.search_input.text().lower()
+        selected_column = self.search_column.currentText()
+
+        for row in range(self.table.rowCount()):
+            row_visible = False
+            
+            if selected_column == "Semua Kolom":
+                # Search in all columns
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row, col)
+                    if item and search_text in item.text().lower():
+                        row_visible = True
+                        break
+            else:
+                # Search in selected column
+                col_idx = self.columns.index(selected_column)
+                item = self.table.item(row, col_idx)
+                if item and search_text in item.text().lower():
+                    row_visible = True
+
+            self.table.setRowHidden(row, not row_visible)
 
     def add_toggle_button(self, layout, group, text):
         toggle_button = QPushButton(text)
@@ -313,6 +401,7 @@ class ExcelViewerApp(QWidget):
         main_layout.addWidget(table_group)
 
         self.setLayout(main_layout)
+        
     def populate_fields_from_selection(self):
         selected_row = self.table.currentRow()
         if selected_row >= 0:
@@ -341,12 +430,19 @@ class ExcelViewerApp(QWidget):
                     field.setText(row_data.get(self.columns[col_idx], ""))
 
     def load_excel(self):
+        
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(self, "Pilih File Excel", "", "Excel Files (*.xlsx);;All Files (*)", options=options)
 
-        if file_path:
+        # Enable the button if user cancels file selection
+        if not file_path:
+            self.btn_select.setEnabled(True)
+            return
+
+        try:
             self.label.setText(f"File: {file_path}")
             self.excel_file_path = file_path
+            self.btn_select.setEnabled(False)
             
             # **🔹 Membaca seluruh sheet dalam file Excel**
             self.excel_data = pd.read_excel(file_path, sheet_name=None)  # Baca semua sheet
@@ -356,15 +452,23 @@ class ExcelViewerApp(QWidget):
                 self.sheet1_data = self.excel_data["Sheet1"]
             else:
                 print("Sheet1 tidak ditemukan!")
+                self.btn_select.setEnabled(True)
+                return
 
             if "Sheet2" in self.excel_data:
                 self.sheet2_data = self.excel_data["Sheet2"]
             else:
                 print("Sheet2 tidak ditemukan!")
+                self.btn_select.setEnabled(True)
+                return
 
             # **🔹 Proses data setelah membaca**
             self.process_excel(file_path)
-
+            
+        except Exception as e:
+            print(f"Error loading file: {e}")
+            self.btn_select.setEnabled(True)
+            QMessageBox.critical(self, "Error", "Failed to load Excel file. Please try again.")
     def process_excel(self, file_path):
         try:
             # 🔹 Baca semua sheet dalam file Excel
@@ -376,12 +480,16 @@ class ExcelViewerApp(QWidget):
             else:
                 print("Sheet1 tidak ditemukan!")
                 df_sheet1 = None
+                self.btn_select.setEnabled(True)
+                return
 
             if "Sheet2" in sheets:
                 df_sheet2 = sheets["Sheet2"]
             else:
                 print("Sheet2 tidak ditemukan!")
                 df_sheet2 = None
+                self.btn_select.setEnabled(True)
+                return
 
             # 🔹 Proses Sheet1 (jika ada)
             if df_sheet1 is not None:
@@ -424,6 +532,8 @@ class ExcelViewerApp(QWidget):
                     self.show_table(self.df_sheet1)
                 else:
                     print("Could not find the start of data in Sheet1")
+                    self.btn_select.setEnabled(True)
+                    return
 
             # 🔹 Proses Sheet2 (jika ada)
             if df_sheet2 is not None:
@@ -436,7 +546,8 @@ class ExcelViewerApp(QWidget):
             print(f"Error loading Excel file: {e}")
             import traceback
             traceback.print_exc()
-
+            self.btn_select.setEnabled(True)
+            QMessageBox.critical(self, "Error", "Failed to process Excel file. Please try again.")
 
     def show_table(self, df):
         try:
