@@ -555,6 +555,19 @@ class ExcelViewerApp(QWidget):
                             print(f"Menambahkan kolom yang hilang: {col}")
                             new_df[col] = ""
 
+                    # Tambahkan kolom-kolom psikogram yang mungkin hilang
+                    psikogram_columns = [
+                        "Intelegensi Umum.1", "Daya Analisa/ AN.1", "Kemampuan Verbal/WA GE.1", 
+                        "Kemampuan Numerik/ RA ZR.1", "Daya Ingat/ME.1", "Fleksibilitas",
+                        "Sistematika Kerja/ cd.1", "Inisiatif/W.1", "Stabilitas Emosi / E.1",
+                        "Komunikasi / B O.1", "Keterampilan Sosial / X S", "Kerjasama"
+                    ]
+                    
+                    for col in psikogram_columns:
+                        if col not in new_df.columns:
+                            print(f"Menambahkan kolom psikogram yang hilang: {col}")
+                            new_df[col] = ""
+
                     self.df_sheet1 = new_df.fillna("")
                     self.columns = list(new_df.columns)
                     self.show_table(self.df_sheet1)
@@ -929,26 +942,49 @@ class ExcelViewerApp(QWidget):
             self.table.insertRow(row)
             for col, column_name in enumerate(self.columns):
                 value = row_data.get(column_name, "")
-                # Buat QTableWidgetItem dengan nilai
-                table_item = QTableWidgetItem()
                 
-                # Jika nilai numerik (integer atau float), simpan sebagai numerik
-                if isinstance(value, (int, float)):
-                    if isinstance(value, float) and value.is_integer():
-                        # Jika float tanpa desimal, konversi ke integer
-                        table_item.setData(Qt.DisplayRole, int(value))
-                    else:
-                        table_item.setData(Qt.DisplayRole, value)
-                else:
-                    # Jika string atau lainnya, simpan sebagai string
-                    table_item.setText(str(value))
-                
-                self.table.setItem(row, col, table_item)
-                
-                # Log untuk kolom W
+                # Penanganan khusus untuk kolom W
                 if column_name == "W":
                     print(f"DEBUG - Setting W value in table to: '{value}'")
+                    # Pastikan nilai W disimpan dengan benar
+                    w_item = QTableWidgetItem()
+                    if isinstance(value, (int, float)):
+                        if isinstance(value, float) and value.is_integer():
+                            w_item.setData(Qt.DisplayRole, int(value))
+                        else:
+                            w_item.setData(Qt.DisplayRole, value)
+                    else:
+                        w_item.setText(str(value))
+                    
+                    self.table.setItem(row, col, w_item)
+                    continue  # Lanjutkan ke kolom berikutnya
+
+                # Penanganan khusus untuk kolom deskripsi psikogram
+                elif col >= 54 and col <= 65 and value:
+                    # Gunakan setText langsung untuk memastikan nilai teks dipertahankan
+                    psiko_item = QTableWidgetItem()
+                    psiko_item.setText(str(value))
+                    self.table.setItem(row, col, psiko_item)
+                    continue  # Lanjutkan ke kolom berikutnya
                 
+                # Penanganan untuk kolom-kolom lainnya
+                else:
+                    # Buat QTableWidgetItem dengan nilai untuk kolom lainnya
+                    table_item = QTableWidgetItem()
+                    
+                    # Jika nilai numerik (integer atau float), simpan sebagai numerik
+                    if isinstance(value, (int, float)):
+                        if isinstance(value, float) and value.is_integer():
+                            # Jika float tanpa desimal, konversi ke integer
+                            table_item.setData(Qt.DisplayRole, int(value))
+                        else:
+                            table_item.setData(Qt.DisplayRole, value)
+                    else:
+                        # Jika string atau lainnya, simpan sebagai string
+                        table_item.setText(str(value))
+                    
+                    self.table.setItem(row, col, table_item)
+            
             # Recalculate values for the new row
             self.recalculate_values(row)
             
@@ -958,10 +994,48 @@ class ExcelViewerApp(QWidget):
             if selected_row >= 0:
                 for col, column_name in enumerate(self.columns):
                     value = row_data.get(column_name, "")
-                    self.table.setItem(selected_row, col, QTableWidgetItem(str(value)))
-                    # Log untuk kolom W
+                    
+                    # Penanganan khusus untuk kolom W
                     if column_name == "W":
                         print(f"DEBUG - Updating W value in table to: '{value}'")
+                        # Pastikan nilai W disimpan dengan benar
+                        w_item = QTableWidgetItem()
+                        if isinstance(value, (int, float)):
+                            if isinstance(value, float) and value.is_integer():
+                                w_item.setData(Qt.DisplayRole, int(value))
+                            else:
+                                w_item.setData(Qt.DisplayRole, value)
+                        else:
+                            w_item.setText(str(value))
+                        
+                        self.table.setItem(selected_row, col, w_item)
+                        continue  # Lanjutkan ke kolom berikutnya
+    
+                    # Penanganan khusus untuk kolom deskripsi psikogram
+                    elif col >= 54 and col <= 65 and value:
+                        # Gunakan setText langsung untuk memastikan nilai teks dipertahankan
+                        psiko_item = QTableWidgetItem()
+                        psiko_item.setText(str(value))
+                        self.table.setItem(selected_row, col, psiko_item)
+                        continue  # Lanjutkan ke kolom berikutnya
+                    
+                    # Penanganan untuk kolom-kolom lainnya
+                    else:
+                        # Buat QTableWidgetItem dengan nilai untuk kolom lainnya
+                        table_item = QTableWidgetItem()
+                        
+                        # Jika nilai numerik (integer atau float), simpan sebagai numerik
+                        if isinstance(value, (int, float)):
+                            if isinstance(value, float) and value.is_integer():
+                                # Jika float tanpa desimal, konversi ke integer
+                                table_item.setData(Qt.DisplayRole, int(value))
+                            else:
+                                table_item.setData(Qt.DisplayRole, value)
+                        else:
+                            # Jika string atau lainnya, simpan sebagai string
+                            table_item.setText(str(value))
+                        
+                        self.table.setItem(selected_row, col, table_item)
                 
                 # Recalculate values for the edited row
                 self.recalculate_values(selected_row)
@@ -981,6 +1055,11 @@ class ExcelViewerApp(QWidget):
             original_w_value = self.get_cell_text(row, 36)
             print(f"DEBUG - Nilai W SEBELUM perhitungan: '{original_w_value}'")
             
+            # Simpan nilai deskripsi psikogram sebelum perhitungan
+            original_psikogram_values = {}
+            for i in range(54, 66):  # Kolom 54-65 adalah kolom deskripsi psikogram
+                original_psikogram_values[i] = self.get_cell_text(row, i)
+                
             # Dapatkan nilai dasar dari kolom-kolom
             iq = self.get_cell_value(row, 5)
             konkrit_praktis = self.get_cell_value(row, 6)
@@ -1366,7 +1445,28 @@ class ExcelViewerApp(QWidget):
             if current_w_value != original_w_value:
                 print(f"PERINGATAN - Nilai W berubah dari '{original_w_value}' menjadi '{current_w_value}'")
                 print(f"Mengembalikan nilai W ke nilai asli: '{original_w_value}'")
-                self.table.setItem(row, 36, QTableWidgetItem(original_w_value))
+                # Buat QTableWidgetItem yang sesuai untuk nilai W
+                w_item = QTableWidgetItem()
+                try:
+                    w_val = float(original_w_value)
+                    if w_val.is_integer():
+                        w_item.setData(Qt.DisplayRole, int(w_val))
+                    else:
+                        w_item.setData(Qt.DisplayRole, w_val)
+                except ValueError:
+                    # Jika bukan numerik, gunakan string
+                    w_item.setText(original_w_value)
+                    
+                self.table.setItem(row, 36, w_item)
+                
+            # Kembalikan nilai deskripsi psikogram asli jika ada yang berubah
+            for col_idx, original_value in original_psikogram_values.items():
+                current_value = self.get_cell_text(row, col_idx)
+                # Jika nilai asli tidak kosong dan berbeda dengan nilai saat ini, kembalikan nilai asli
+                if original_value.strip() and current_value != original_value:
+                    print(f"PERINGATAN - Nilai deskripsi di kolom {col_idx} berubah dari '{original_value}' menjadi '{current_value}'")
+                    print(f"Mengembalikan nilai deskripsi ke nilai asli: '{original_value}'")
+                    self.table.setItem(row, col_idx, QTableWidgetItem(original_value))
 
         except Exception as e:
             print(f"Kesalahan dalam perhitungan ulang: {e}")
@@ -2248,21 +2348,16 @@ class ExcelViewerApp(QWidget):
                                     if formula.startswith('=@'):
                                         formula = '=' + formula[2:]
                                     
-                                    # Cek apakah kolom ini punya hasil evaluasi formula
-                                    if col_idx in formula_results:
-                                        # Gunakan hasil langsung alih-alih formula untuk menghindari #NAME?
-                                        # Kolom 50-54 harus selalu menggunakan formula, bukan hasil evaluasi
-                                        if col_idx >= 50 and col_idx <= 54:
-                                            # Gunakan formula untuk kolom 50-54
-                                            target_cell.value = formula
-                                            print(f"Menetapkan formula IFS ke baris {target_row}, kolom {col_idx}: {formula}")
-                                        else:
-                                            target_cell.value = formula_results[col_idx]
-                                            print(f"Menggunakan hasil evaluasi {formula_results[col_idx]} untuk kolom {col_idx} (IFS)")
+                                    # Penanganan khusus untuk kolom deskripsi psikogram (kolom 55-66)
+                                    # Kolom ini harus menggunakan nilai langsung jika sudah terisi daripada formula
+                                    if col_idx >= 55 and col_idx <= 66 and value and str(value).strip():
+                                        target_cell.value = value  # Gunakan nilai langsung dari UI
+                                        print(f"Menetapkan nilai langsung untuk deskripsi psikogram di baris {target_row}, kolom {col_idx}: {value}")
                                     else:
-                                        # Gunakan formula jika tidak ada hasil evaluasi
+                                        # Gunakan formula untuk kolom lain
                                         target_cell.value = formula
                                         print(f"Menetapkan formula IFS ke baris {target_row}, kolom {col_idx}: {formula}")
+                                        
                                 else:
                                     # Formula normal
                                     formula = formula_info.get('formula', '')
@@ -2601,6 +2696,7 @@ class ExcelViewerApp(QWidget):
             # Get absolute path for logo
             import os
             import base64
+            from datetime import datetime
             current_dir = os.path.dirname(os.path.abspath(__file__))
             logo_path = os.path.join(current_dir, "logo.png")
             
@@ -3056,32 +3152,32 @@ class ExcelViewerApp(QWidget):
                         <tr>
                             <td style="width: 20%; padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">KEMAMPUAN INTELEKTUAL</td>
                             <td style="width: 80%; padding: 8px; text-align: justify; border: 1px solid black;">
-                                Berdasarkan pemeriksaan kemampuan intelektual, diketahui bahwa Sdr. {nama} menunjukkan kapasitas intelektual yang cukup memadai. Ia cukup mampu untuk menganalisis dan membuat kesimpulan yang tidak sepenuhnya didukung oleh bukti. Ia menunjukkan ketelitian dalam mengidentifikasi komponen-komponen penting dari suatu masalah, sehingga pemahaman terhadap hubungan sebab-akibat menjadi terbatas. Selain itu, menunjukkan pemahaman yang kurang memadai terhadap konsep matematis dasar, yang mempengaruhi kemampuan analisa. Namun, menunjukkan pemahaman yang baik terhadap makna makna dalam bahasa, yang mempengaruhi kemampuan ekspresi dalam berkomunikasi secara efektif.
+                                {row_data.get('Intelegensi Umum.1', '')}
                             </td>
                         </tr>
                         <tr>
                             <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">SIKAP DAN CARA KERJA</td>
                             <td style="padding: 8px; text-align: justify; border: 1px solid black;">
-                                Berdasarkan pemeriksaan sikap dan cara kerja, diketahui bahwa Sdr. {nama} mampu menyelesaikan tugas-tugas yang diberikan dengan cukup baik meskipun terkadang membutuhkan waktu yang lebih lama. Ia menunjukkan kesulitan dalam beradaptasi dan menyesuaikan diri dengan perubahan, terkadang merasa tidak nyaman dengan hal-hal baru. Kemudian, mampu membuat rencana kerja yang cukup terstruktur, meskipun terkadang membutuhkan pengawasan tambahan.
+                                {row_data.get('Sistematika Kerja/ cd.1', '')}
                             </td>
                         </tr>
                         <tr>
                             <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">KEPRIBADIAN</td>
                             <td style="padding: 8px; text-align: justify; border: 1px solid black;">
-                                Berdasarkan pemeriksaan kepribadian, diketahui bahwa Sdr. {nama} menunjukkan motivasi yang kuat untuk mencapai target yang ditetapkan, selalu berusaha untuk mencapai ekspektasi. Tak hanya itu, juga menunjukkan usaha yang kurang maksimal dalam berkontribusi pada kelompok, terkadang mengalami tanggung jawab yang diberikan. Ia mampu membina dan mempertahankan hubungan sosial yang cukup baik, meskipun terkadang dalam situasi tertentu. Selain itu, menunjukkan emosi yang cukup stabil dalam menghadapi situasi yang menantang, meskipun terkadang membutuhkan waktu untuk beradaptasi dengan perubahan.
+                                {row_data.get('Stabilitas Emosi / E.1', '')}
                             </td>
                         </tr>
                         <tr>
                             <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">KEMAMPUAN BELAJAR</td>
                             <td style="padding: 8px; text-align: justify; border: 1px solid black;">
-                                Berdasarkan pemeriksaan kemampuan belajar, diketahui bahwa Sdr. {nama} menunjukkan inisiatif yang kuat dalam memiliki pengetahuan dan keterampilan diri, giat dalam mencapai hal-hal baru dan berusaha untuk meningkatkan pengetahuan dan keterampilan diri. Namun, terkadang membutuhkan waktu untuk beradaptasi dengan perubahan, yang menunjukkan perlunya perhatian khusus dalam beradaptasi.
+                                {row_data.get('Fleksibilitas', '')}
                             </td>
                         </tr>
                         <tr>
                             <td colspan="2" style="padding: 8px;">
                                 <div style="font-weight: bold; margin: 10px 0; font-size: 12px;">PENGEMBANGAN</div>
                                 <div style="text-align: justify; border: 1px solid black; padding: 8px;">
-                                    Sdr. {nama} masih membutuhkan pengembangan dalam mengidentifikasi pola logis, menarik kesimpulan, dan memperdalami penguasaan hubungan sebab akibat menjadi lebih baik dalam konsep matematis dan butuh memperdalam penggunaan bahasa lebih lanjut. Kemudian, butuh kefokusan agar lebih mudah dalam beradaptasi, dan butuh kontribusi lebih, dan koordinasi dengan kelompok agar mencapai tujuan bersama. Serta mudah diri dengan pada pada hal-hal baru.
+                                    {row_data.get('Keterampilan Sosial / X S', '')}
                                 </div>
                             </td>
                         </tr>
@@ -3092,15 +3188,15 @@ class ExcelViewerApp(QWidget):
                             <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">Kategori Hasil Screening</th>
                         </tr>
                         <tr>
-                            <td style="width: 5%; text-align: center; border: 1px solid black; padding: 8px;">X</td>
+                            <td style="width: 5%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if float(row_data.get('IQ ', 0)) >= 90 else ""}</td>
                             <td style="padding: 8px; border: 1px solid black;">Tahapan Normal<br><span style="font-size: 10px; color: #666;">Individu menunjukkan adaptasi gejala gangguan mental yang mengganggu fungsi sehari-hari</span></td>
                         </tr>
                         <tr>
-                            <td style="text-align: center; border: 1px solid black; padding: 8px;"></td>
+                            <td style="text-align: center; border: 1px solid black; padding: 8px;">{"X" if 80 <= float(row_data.get('IQ ', 0)) < 90 else ""}</td>
                             <td style="padding: 8px; border: 1px solid black;">Kecenderungan Stress dalam Tekanan<br><span style="font-size: 10px; color: #666;">Dalam situasi yg menimbulkan tekanan dapat berdampak pada kondisi individu & respon emosional yg ditampilkan</span></td>
                         </tr>
                         <tr>
-                            <td style="text-align: center; border: 1px solid black; padding: 8px;"></td>
+                            <td style="text-align: center; border: 1px solid black; padding: 8px;">{"X" if float(row_data.get('IQ ', 0)) < 80 else ""}</td>
                             <td style="padding: 8px; border: 1px solid black;">Gangguan<br><span style="font-size: 10px; color: #666;">Individu menunjukkan gejala-gejala gangguan yang dapat mengganggu fungsi sehari-hari</span></td>
                         </tr>
                     </table>
@@ -3110,15 +3206,15 @@ class ExcelViewerApp(QWidget):
                             <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">Kesimpulan Keseluruhan</th>
                         </tr>
                         <tr>
-                            <td style="width: 8%; text-align: center; border: 1px solid black; padding: 8px;"></td>
+                            <td style="width: 8%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if float(row_data.get('IQ ', 0)) >= 110 else ""}</td>
                             <td style="padding: 8px; border: 1px solid black;">LAYAK DIREKOMENDASIKAN</td>
                         </tr>
                         <tr>
-                            <td style="width: 8%; text-align: center; border: 1px solid black; padding: 8px;">X</td>
+                            <td style="width: 8%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if 90 <= float(row_data.get('IQ ', 0)) < 110 else ""}</td>
                             <td style="padding: 8px; border: 1px solid black;">LAYAK DIPERTIMBANGKAN</td>
                         </tr>
                         <tr>
-                            <td style="text-align: center; border: 1px solid black; padding: 8px;"></td>
+                            <td style="text-align: center; border: 1px solid black; padding: 8px;">{"X" if float(row_data.get('IQ ', 0)) < 90 else ""}</td>
                             <td style="padding: 8px; border: 1px solid black;">TIDAK DISARANKAN</td>
                         </tr>
                     </table>    
@@ -3145,7 +3241,7 @@ class ExcelViewerApp(QWidget):
                         <div style="margin-bottom: 15px;">
                             <div>
                                 <span style="display: inline-block; width: 120px;">Tanggal</span>
-                                <span>: 26 Februari 2025</span>
+                                <span>: {datetime.now().strftime("%d %B %Y")}</span>
                             </div>
                             <div style="font-style: italic; font-size: 11px; color: #666;">Date</div>
                         </div>
