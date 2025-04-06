@@ -1617,12 +1617,23 @@ class ExcelViewerApp(QWidget):
                 for col_idx in range(1, sheet.max_column + 1):
                     target_cell = sheet.cell(row=target_row, column=col_idx)
                     
-                    # Tentukan style yang akan digunakan (dari template baris yang sesuai)
+                    # Determine style to use from template rows or default to None
+                    style = None
                     if template_idx in template_rows and col_idx in template_rows[template_idx]:
                         style = template_rows[template_idx][col_idx]
-                    elif col_idx in col_styles:
-                        style = col_styles[col_idx]
                     else:
+                        # Try to get style from header row if available
+                        header_cell = sheet.cell(row=header_row, column=col_idx)
+                        if header_cell.has_style:
+                            style = {
+                                'font': copy.copy(header_cell.font),
+                                'border': copy.copy(header_cell.border), 
+                                'fill': copy.copy(header_cell.fill),
+                                'number_format': header_cell.number_format,
+                                'alignment': copy.copy(header_cell.alignment)
+                            }
+                    
+                    if not style:
                         continue
                     
                     # Terapkan style tapi hindari bold
@@ -2148,11 +2159,6 @@ class ExcelViewerApp(QWidget):
                     }
                 </style>
             </head>
-            <body>
-                <div class="header">
-                    <div class="title">HASIL PEMERIKSAAN PSIKOLOGIS</div>
-                    <div>(Asesmen Intelegensi, Kepribadian dan Minat)</div>
-                </div>
             """
 
             # Add personal info
@@ -2176,30 +2182,45 @@ class ExcelViewerApp(QWidget):
 
             html_content += f"""
             <div style="width: 100%; margin: 0 auto;">
-                <table class="info-table">
-                <tr>
-                    <td width="20%">NAMA</td>
-                    <td width="30%">: {nama}</td>
-                    <td width="20%">PERUSAHAAN</td>
-                    <td width="30%">: PT. BAM</td>
-                </tr>
-                <tr>
-                    <td>TANGGAL LAHIR</td>
-                    <td>: {tgl_lahir_formatted}</td>
-                    <td>TANGGAL TES</td>
-                    <td>: {tanggal_tes}</td>
-                </tr>
-                <tr>
-                    <td>PEMERIKSA</td>
-                    <td>: Chitra Ananda Mulia, M.Psi., Psikolog</td>
-                    <td>LEMBAGA</td>
-                    <td>: BEHAVYOURS</td>
-                </tr>
-                <tr>
-                    <td>ALAMAT LEMBAGA</td>
-                    <td colspan="3">: Jl. Patal Senayan No.01</td>
-                </tr>
-            </table>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div style="width: 80px;">
+                        <img src="E:/Ney/Kuliah/Project/Surveyor/logo1.jpg" alt="Logo" style="width: 100%; height: auto;">
+                        <div style="color: #1f4e79; font-weight: bold; text-align: center; font-size: 14px; margin-top: 5px;">BEHAVYOURS</div>
+                    </div>
+                    <div style="text-align: center; flex-grow: 1;">
+                        <div style="font-size: 14px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
+                        <div style="font-size: 12px; color: #1f4e79;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
+                    </div>
+                    <div style="text-align: right; font-size: 12px;">
+                        <div style="font-weight: bold; color: #1f4e79;">RAHASIA</div>
+                        <div style="color: #1f4e79;">No. {row_data.get('No', '')} / {row_data.get('No Tes', '')}</div>
+                    </div>
+                </div>
+                <table class="info-table" style="margin-bottom: 20px; border-spacing: 0; font-size: 12px;">
+                    <tr>
+                        <td width="15%" style="padding: 4px 0; color: #c45911; font-weight: bold;">NAMA</td>
+                        <td width="35%" style="padding: 4px 0; color: #c45911; font-weight: bold;">: {nama}</td>
+                        <td width="15%" style="padding: 4px 0; color: #c45911; font-weight: bold;">PERUSAHAAN</td>
+                        <td width="35%" style="padding: 4px 0; color: #c45911; font-weight: bold;">: PT. BAM</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">TANGGAL LAHIR</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">: {tgl_lahir_formatted}</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">TANGGAL TES</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">: {tanggal_tes}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">PEMERIKSA</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">: Chitra Ananda Mulia, M.Psi., Psikolog</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">LEMBAGA</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">: BEHAVYOURS</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">ALAMAT LEMBAGA</td>
+                        <td colspan="3" style="padding: 4px 0; color: #c45911; font-weight: bold;">: Jl. Patal Senayan No.01</td>
+                    </tr>
+                </table>
+            </div>
             """
             # Pastikan iq_value adalah numerik
             try:
@@ -2254,199 +2275,174 @@ class ExcelViewerApp(QWidget):
                     </div>     
                         """
 
-           # Add IQ data
+            # Add IQ data
             iq_val = self.table.item(selected_row, self.get_column_index("IQ "))
             iq_class = self.table.item(selected_row, self.get_column_index("KLASIFIKASI"))
             if iq_val and iq_class:
 
                 # Define a function to determine the position of 'X'
                 def get_x_position(value):
-                    if value == "R":
-                        return ["X", "", "", "", ""]
-                    elif value == "K":
-                        return ["", "X", "", "", ""]
-                    elif value == "C":
-                        return ["", "", "X", "", ""]
-                    elif value == "B":
-                        return ["", "", "", "X", ""]
-                    elif value == "T":
-                        return ["", "", "", "", "X"]
-                    return ["", "", "", "", ""]
+                    positions = {
+                        "R": ["X", "", "", "", ""],
+                        "K": ["", "X", "", "", ""],
+                        "C": ["", "", "X", "", ""],
+                        "B": ["", "", "", "X", ""],
+                        "T": ["", "", "", "", "X"]
+                    }
+                    return positions.get(value, ["", "", "", "", ""])
 
                 # Get values for each psychological aspect
-                daya_analisa = row_data.get("Daya Analisa/ AN", "")
-                kemampuan_numerik = row_data.get("Kemampuan Numerik/ RA ZR", "")
-                kemampuan_verbal = row_data.get("Kemampuan Verbal/WA GE", "")
-                fleksibilitas = row_data.get("Flexibilitas/ T V", "")
-                sistematika_kerja = row_data.get("Sistematika Kerja/ cd", "")
-                inisiatif = row_data.get("Inisiatif/W", "")
-                stabilitas_emosi = row_data.get("Stabilitas Emosi / E", "")
-                komunikasi = row_data.get("Komunikasi / B O", "")
-                keterampilan_interpersonal = row_data.get("Keterampilan Interpersonal / S O", "")
-                kerjasama = row_data.get("Kerjasama / B X", "")
+                aspects = {
+                    "daya_analisa": row_data.get("Daya Analisa/ AN", ""),
+                    "kemampuan_numerik": row_data.get("Kemampuan Numerik/ RA ZR", ""),
+                    "kemampuan_verbal": row_data.get("Kemampuan Verbal/WA GE", ""),
+                    "fleksibilitas": row_data.get("Flexibilitas/ T V", ""),
+                    "sistematika_kerja": row_data.get("Sistematika Kerja/ cd", ""),
+                    "inisiatif": row_data.get("Inisiatif/W", ""),
+                    "stabilitas_emosi": row_data.get("Stabilitas Emosi / E", ""),
+                    "komunikasi": row_data.get("Komunikasi / B O", ""),
+                    "keterampilan_interpersonal": row_data.get("Keterampilan Interpersonal / S O", ""),
+                    "kerjasama": row_data.get("Kerjasama / B X", "")
+                }
 
+                # Define common cell styles
+                header_style = 'text-align: center; padding: 8px; background-color: #deeaf6; border: 1px solid black;'
+                cell_style = 'text-align: center; font-weight: bold;'
+                section_header_style = 'background-color: #fbe4d5; text-align: center; font-weight: bold;'
+                
                 # Add psikogram table with dynamic 'X' positions
                 html_content += f"""
                     <table class="psikogram" style="width: 100%; margin-top: 20px; border-collapse: collapse; border: 1px solid black;">
                         <tr>
-                            <th colspan="8" style="text-align: center; padding: 8px; background-color: #deeaf6; border: 1px solid black;">PSIKOGRAM</th>
+                            <th colspan="8" style="{header_style}">PSIKOGRAM</th>
                         </tr>
                         <tr>
-                            <th style="width: 5%; border: 1px solid black; padding: 8px; background-color: #deeaf6;">NO</th>
-                            <th style="width: 15%; border: 1px solid black; padding: 8px; background-color: #deeaf6;">ASPEK<br>PSIKOLOGIS</th>
-                            <th style="width: 40%; border: 1px solid black; padding: 8px; background-color: #deeaf6;">DEFINISI</th>
-                            <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">R</th>
-                            <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">K</th>
-                            <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">C</th>
-                            <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">B</th>
-                            <th style="width: 8%; border: 1px solid black; text-align: center; padding: 8px; background-color: #deeaf6;">T</th>
+                            <th style="width: 5%; {header_style}">NO</th>
+                            <th style="width: 15%; {header_style}">ASPEK<br>PSIKOLOGIS</th>
+                            <th style="width: 40%; {header_style}">DEFINISI</th>
+                            <th style="width: 8%; {header_style}">R</th>
+                            <th style="width: 8%; {header_style}">K</th>
+                            <th style="width: 8%; {header_style}">C</th>
+                            <th style="width: 8%; {header_style}">B</th>
+                            <th style="width: 8%; {header_style}">T</th>
                         </tr>
 
+                        <tr><td colspan="8" style="{section_header_style}">KEMAMPUAN INTELEKTUAL</td></tr>
+                        
+                        <!-- Logika Berpikir -->
                         <tr>
-                            <td colspan="8" style="background-color: #fbe4d5; text-align: center; border: 1px solid black;">KEMAMPUAN INTELEKTUAL</td>
-                        </tr>
-                        <tr>
-                            <td style="text-align: center; background-color: #deeaf6;">1.</td>
-                            <td>Logika Berpikir</td>
+                            <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">1.</td>
+                            <td style="font-weight: bold;">Logika Berpikir</td>
                             <td>Kemampuan untuk berpikir secara logis dan sistematis.</td>
-                            <td style="text-align: center;">{get_x_position(daya_analisa)[0]}</td>
-                            <td style="text-align: center;">{get_x_position(daya_analisa)[1]}</td>
-                            <td style="text-align: center;">{get_x_position(daya_analisa)[2]}</td>
-                            <td style="text-align: center;">{get_x_position(daya_analisa)[3]}</td>
-                            <td style="text-align: center;">{get_x_position(daya_analisa)[4]}</td>
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["daya_analisa"]))}
                         </tr>
+
+                        <!-- Daya Analisa -->
                         <tr>
-                            <td style="text-align: center; background-color: #deeaf6;">2.</td>
-                            <td>Daya Analisa</td>
+                            <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">2.</td>
+                            <td style="font-weight: bold;">Daya Analisa</td>
                             <td>Kemampuan untuk melihat permasalahan dan memahami hubungan sebab akibat permasalahan.</td>
-                            <td style="text-align: center;">{get_x_position(daya_analisa)[0]}</td>
-                            <td style="text-align: center;">{get_x_position(daya_analisa)[1]}</td>
-                            <td style="text-align: center;">{get_x_position(daya_analisa)[2]}</td>
-                            <td style="text-align: center;">{get_x_position(daya_analisa)[3]}</td>
-                            <td style="text-align: center;">{get_x_position(daya_analisa)[4]}</td>
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["daya_analisa"]))}
                         </tr>
+
+                        <!-- Kemampuan Numerikal -->
                         <tr>
-                            <td style="text-align: center; background-color: #deeaf6;">3.</td>
-                            <td>Kemampuan Numerikal</td>
+                            <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">3.</td>
+                            <td style="font-weight: bold;">Kemampuan Numerikal</td>
                             <td>Kemampuan untuk berpikir praktis dalam memahami konsep angka dan hitungan.</td>
-                            <td style="text-align: center;">{get_x_position(kemampuan_numerik)[0]}</td>
-                            <td style="text-align: center;">{get_x_position(kemampuan_numerik)[1]}</td>
-                            <td style="text-align: center;">{get_x_position(kemampuan_numerik)[2]}</td>
-                            <td style="text-align: center;">{get_x_position(kemampuan_numerik)[3]}</td>
-                            <td style="text-align: center;">{get_x_position(kemampuan_numerik)[4]}</td>
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["kemampuan_numerik"]))}
                         </tr>
+
+                        <!-- Kemampuan Verbal -->
                         <tr>
-                            <td style="text-align: center; background-color: #deeaf6;">4.</td>
-                            <td>Kemampuan Verbal</td>
+                            <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">4.</td>
+                            <td style="font-weight: bold;">Kemampuan Verbal</td>
                             <td>Kemampuan untuk memahami konsep dan pola dalam bentuk kata dan mengekspresikan gagasan secara verbal.</td>
-                            <td style="text-align: center;">{get_x_position(kemampuan_verbal)[0]}</td>
-                            <td style="text-align: center;">{get_x_position(kemampuan_verbal)[1]}</td>
-                            <td style="text-align: center;">{get_x_position(kemampuan_verbal)[2]}</td>
-                            <td style="text-align: center;">{get_x_position(kemampuan_verbal)[3]}</td>
-                            <td style="text-align: center;">{get_x_position(kemampuan_verbal)[4]}</td>
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["kemampuan_verbal"]))}
                         </tr>
+
+                        <tr><td colspan="8" style="{section_header_style}">SIKAP DAN CARA KERJA</td></tr>
+
+                        <!-- Orientasi Hasil -->
                         <tr>
-                            <td colspan="8" style="background-color: #fbe4d5; text-align: center;">SIKAP DAN CARA KERJA</td>
-                        </tr>
-                        <tr>
-                            <td style="text-align: center; background-color: #deeaf6;">5.</td>
-                            <td>Orientasi Hasil</td>
+                            <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">5.</td>
+                            <td style="font-weight: bold;">Orientasi Hasil</td>
                             <td>Kemampuan untuk mempertahankan komitmen untuk menyelesaikan tugas secara bertanggung jawab dan memperhatikan keterhubungan antara perencanaan dan hasil kerja.</td>
-                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[0]}</td>
-                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[1]}</td>
-                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[2]}</td>
-                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[3]}</td>
-                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[4]}</td>
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["sistematika_kerja"]))}
                         </tr>
+
+                        <!-- Fleksibilitas -->
                         <tr>
-                            <td style="text-align: center; background-color: #deeaf6;">6.</td>
-                            <td>Fleksibilitas</td>
+                            <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">6.</td>
+                            <td style="font-weight: bold;">Fleksibilitas</td>
                             <td>Kemampuan untuk menyesuaikan diri dalam menghadapi permasalahan.</td>
-                            <td style="text-align: center;">{get_x_position(fleksibilitas)[0]}</td>
-                            <td style="text-align: center;">{get_x_position(fleksibilitas)[1]}</td>
-                            <td style="text-align: center;">{get_x_position(fleksibilitas)[2]}</td>
-                            <td style="text-align: center;">{get_x_position(fleksibilitas)[3]}</td>
-                            <td style="text-align: center;">{get_x_position(fleksibilitas)[4]}</td>
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["fleksibilitas"]))}
                         </tr>
+
+                        <!-- Sistematika Kerja -->
                         <tr>
-                            <td style="text-align: center; background-color: #deeaf6;">7.</td>
-                            <td>Sistematika Kerja</td>
+                            <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">7.</td>
+                            <td style="font-weight: bold;">Sistematika Kerja</td>
                             <td>Kemampuan untuk merencanakan hingga mengorganisasikan cara kerja dalam proses penyelesaian pekerjaannya.</td>
-                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[0]}</td>
-                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[1]}</td>
-                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[2]}</td>
-                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[3]}</td>
-                            <td style="text-align: center;">{get_x_position(sistematika_kerja)[4]}</td>
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["sistematika_kerja"]))}
                         </tr>
+
+                        <tr><td colspan="8" style="{section_header_style}">KEPRIBADIAN</td></tr>
+
+                        <!-- Motivasi Berprestasi -->
                         <tr>
-                            <td colspan="8" style="background-color: #fbe4d5; text-align: center;">KEPRIBADIAN</td>
-                        </tr>
-                        <tr>
-                            <td style="text-align: center; background-color: #deeaf6;">8.</td>
-                            <td>Motivasi Berprestasi</td>
+                            <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">8.</td>
+                            <td style="font-weight: bold;">Motivasi Berprestasi</td>
                             <td>Kemampuan untuk menunjukkan prestasi dan mencapai target.</td>
-                            <td style="text-align: center;">{get_x_position(inisiatif)[0]}</td>
-                            <td style="text-align: center;">{get_x_position(inisiatif)[1]}</td>
-                            <td style="text-align: center;">{get_x_position(inisiatif)[2]}</td>
-                            <td style="text-align: center;">{get_x_position(inisiatif)[3]}</td>
-                            <td style="text-align: center;">{get_x_position(inisiatif)[4]}</td>
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["inisiatif"]))}
                         </tr>
+
+                        <!-- Kerjasama -->
                         <tr>
-                            <td style="text-align: center; background-color: #deeaf6;">9.</td>
-                            <td>Kerjasama</td>
+                            <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">9.</td>
+                            <td style="font-weight: bold;">Kerjasama</td>
                             <td>Kemampuan untuk menjalin, membina dan mengoptimalkan hubungan kerja yang efektif demi tercapainya tujuan bersama.</td>
-                            <td style="text-align: center;">{get_x_position(kerjasama)[0]}</td>
-                            <td style="text-align: center;">{get_x_position(kerjasama)[1]}</td>
-                            <td style="text-align: center;">{get_x_position(kerjasama)[2]}</td>
-                            <td style="text-align: center;">{get_x_position(kerjasama)[3]}</td>
-                            <td style="text-align: center;">{get_x_position(kerjasama)[4]}</td>
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["kerjasama"]))}
                         </tr>
+
+                        <!-- Keterampilan Interpersonal -->
                         <tr>
-                            <td style="text-align: center; background-color: #deeaf6;">10.</td>
-                            <td>Keterampilan Interpersonal</td>
+                            <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">10.</td>
+                            <td style="font-weight: bold;">Keterampilan Interpersonal</td>
                             <td>Kemampuan untuk menjalin hubungan sosial dan mampu memahami kebutuhan orang lain.</td>
-                            <td style="text-align: center;">{get_x_position(keterampilan_interpersonal)[0]}</td>
-                            <td style="text-align: center;">{get_x_position(keterampilan_interpersonal)[1]}</td>
-                            <td style="text-align: center;">{get_x_position(keterampilan_interpersonal)[2]}</td>
-                            <td style="text-align: center;">{get_x_position(keterampilan_interpersonal)[3]}</td>
-                            <td style="text-align: center;">{get_x_position(keterampilan_interpersonal)[4]}</td>
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["keterampilan_interpersonal"]))}
                         </tr>
+
+                        <!-- Stabilitas Emosi -->
                         <tr>
-                            <td style="text-align: center; background-color: #deeaf6;">11.</td>
-                            <td>Stabilitas Emosi</td>
+                            <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">11.</td>
+                            <td style="font-weight: bold;">Stabilitas Emosi</td>
                             <td>Kemampuan untuk memahami dan mengontrol emosi.</td>
-                            <td style="text-align: center;">{get_x_position(stabilitas_emosi)[0]}</td>
-                            <td style="text-align: center;">{get_x_position(stabilitas_emosi)[1]}</td>
-                            <td style="text-align: center;">{get_x_position(stabilitas_emosi)[2]}</td>
-                            <td style="text-align: center;">{get_x_position(stabilitas_emosi)[3]}</td>
-                            <td style="text-align: center;">{get_x_position(stabilitas_emosi)[4]}</td>
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["stabilitas_emosi"]))}
                         </tr>
+
+                        <tr><td colspan="8" style="{section_header_style}">KEMAMPUAN BELAJAR</td></tr>
+
+                        <!-- Pengembangan Diri -->
                         <tr>
-                            <td colspan="8" style="background-color: #fbe4d5; text-align: center;">KEMAMPUAN BELAJAR</td>
-                        </tr>
-                        <tr>
-                            <td style="text-align: center; background-color: #deeaf6;">12.</td>
-                            <td>Pengembangan Diri</td>
+                            <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">12.</td>
+                            <td style="font-weight: bold;">Pengembangan Diri</td>
                             <td>Kemampuan untuk meningkatkan pengetahuan dan menyempurnakan keterampilan diri.</td>
-                            <td style="text-align: center;">{get_x_position(inisiatif)[0]}</td>
-                            <td style="text-align: center;">{get_x_position(inisiatif)[1]}</td>
-                            <td style="text-align: center;">{get_x_position(inisiatif)[2]}</td>
-                            <td style="text-align: center;">{get_x_position(inisiatif)[3]}</td>
-                            <td style="text-align: center;">{get_x_position(inisiatif)[4]}</td>
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["inisiatif"]))}
                         </tr>
+
+                        <!-- Mengelola Perubahan -->
                         <tr>
-                            <td style="text-align: center; background-color: #deeaf6;">13.</td>
-                            <td>Mengelola Perubahan</td>
+                            <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">13.</td>
+                            <td style="font-weight: bold;">Mengelola Perubahan</td>
                             <td>Kemampuan dalam menyesuaikan diri dengan situasi yang baru.</td>
-                            <td style="text-align: center;">{get_x_position(fleksibilitas)[0]}</td>
-                            <td style="text-align: center;">{get_x_position(fleksibilitas)[1]}</td>
-                            <td style="text-align: center;">{get_x_position(fleksibilitas)[2]}</td>
-                            <td style="text-align: center;">{get_x_position(fleksibilitas)[3]}</td>
-                            <td style="text-align: center;">{get_x_position(fleksibilitas)[4]}</td>
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["fleksibilitas"]))}
                         </tr>
+
+                        <!-- Legend -->
                         <tr style="border-top: 1px solid black;">
                             <td colspan="8" style="text-align: center; padding: 2px; font-family: Arial; font-size: 11px; background-color: #deeaf6;">
-                                <div style="display: inline-block; width: 100%;">
+                                <div style="display: inline-block; width: 100%; font-weight: bold;">
                                     T : Tinggi&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                     B : Baik&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                     C : Cukup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
@@ -2458,21 +2454,26 @@ class ExcelViewerApp(QWidget):
                     </table>
                 """
 
-            # Close tables and add footer
-            html_content += """
-                </table>
-                <div class="footer">
-                    Laporan ini bersifat confidential dan diketahui oleh Psikolog
-                </div>
-            </body>
-            </html>
-            """
-
             # Add page break and second page content
             html_content += f"""
                 <div class="page-break"></div>
-                <div class="page">
-                    <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                <div class="page" style="padding: 1cm; font-family: Arial;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div style="width: 80px;">
+                            <img src="E:/Ney/Kuliah/Project/Surveyor/logo1.jpg" alt="Logo" style="width: 100%; height: auto;">
+                            <div style="color: #1f4e79; font-weight: bold; text-align: center; font-size: 14px; margin-top: 5px;">BEHAVYOURS</div>
+                        </div>
+                        <div style="text-align: center; flex-grow: 1;">
+                            <div style="font-size: 14px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
+                            <div style="font-size: 12px; color: #1f4e79;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
+                        </div>
+                        <div style="text-align: right; font-size: 12px;">
+                            <div style="font-weight: bold; color: #1f4e79;">RAHASIA</div>
+                            <div style="color: #1f4e79;">No. {row_data.get('No', '')} / {row_data.get('No Tes', '')}</div>
+                        </div>
+                    </div>
+
+                    <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
                         <tr>
                             <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">KESIMPULAN</th>
                         </tr>
@@ -2510,7 +2511,7 @@ class ExcelViewerApp(QWidget):
                         </tr>
                     </table>
 
-                    <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                    <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
                         <tr>
                             <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">Kategori Hasil Screening</th>
                         </tr>
@@ -2528,7 +2529,7 @@ class ExcelViewerApp(QWidget):
                         </tr>
                     </table>
                     
-                    <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                    <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
                         <tr>
                             <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">Kesimpulan Keseluruhan</th>
                         </tr>
@@ -2544,26 +2545,23 @@ class ExcelViewerApp(QWidget):
                             <td style="text-align: center; border: 1px solid black; padding: 8px;"></td>
                             <td style="padding: 8px; border: 1px solid black;">TIDAK DISARANKAN</td>
                         </tr>
-                    </table>
-                            <div style="position: absolute; bottom: 2cm; width: calc(100% - 4cm); text-align: center; font-style: italic;">
-                        Laporan ini bersifat confidential dan diketahui oleh Psikolog
-                    </div>
+                    </table>    
                 </div>
             """
 
             # Add page break and third page content
             html_content += f"""
                 <div class="page-break"></div>
-                <div class="page" style="padding: 2cm; font-family: Arial;">
+                <div class="page" style="padding: 1cm; font-family: Arial;">
                     <div style="display: flex; align-items: center; margin-bottom: 20px;">
                         <img src="behanyours.png" alt="Logo" style="width: 80px; height: auto; margin-right: 20px;">
                         <div style="flex-grow: 1; text-align: center;">
-                            <div style="font-size: 14px; font-weight: bold;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
-                            <div style="font-size: 12px;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
+                            <div style="font-size: 14px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
+                            <div style="font-size: 12px; color: #1f4e79;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
                         </div>
                         <div style="text-align: right; font-size: 12px;">
-                            <div style="font-weight: bold;">RAHASIA</div>
-                            <div>No. 158/02/JMI/2025</div>
+                            <div style="font-weight: bold; color: #1f4e79;">RAHASIA</div>
+                            <div style="color: #1f4e79;">No. {row_data.get('No', '')} / {row_data.get('No Tes', '')}</div>
                         </div>
                     </div>
 
@@ -2579,7 +2577,6 @@ class ExcelViewerApp(QWidget):
                         <div style="margin-bottom: 15px;">
                             <div>
                                 <span style="display: inline-block; width: 120px;">Tanda Tangan</span>
-                                <span>: <img src="signature.png" alt="Signature" style="height: 40px; vertical-align: middle;"></span>
                             </div>
                             <div style="font-style: italic; font-size: 11px; color: #666;">Signature</div>
                         </div>
@@ -2608,11 +2605,17 @@ class ExcelViewerApp(QWidget):
                             <div style="font-style: italic; font-size: 11px; color: #666;">Licence Number</div>
                         </div>
                     </div>
-
-                    <div style="position: absolute; bottom: 2cm; width: calc(100% - 4cm); text-align: center; font-style: italic;">
-                        Laporan ini bersifat confidential dan diketahui oleh Psikolog
-                    </div>
                 </div>
+            """
+
+            # Close tables and add footer
+            html_content += """
+                </table>
+                <div class="footer">
+                    Laporan ini bersifat confidential dan diketahui oleh Psikolog
+                </div>
+            </body>
+            </html>
             """
 
             # Create and show preview dialog
@@ -2646,7 +2649,7 @@ class ExcelViewerApp(QWidget):
             
             # Create web view for page 1
             web_view1 = QWebEngineView(preview_dialog)
-            web_view1.setZoomFactor(0.8)
+            web_view1.setZoomFactor(0.6)
             web_view1.setFixedWidth(int(dialog_width * 0.3))  # Adjust width to 30% for 3 pages
             # Split HTML content at page break
             pages = html_content.split('<div class="page-break"></div>')
@@ -2655,7 +2658,7 @@ class ExcelViewerApp(QWidget):
             
             # Create web view for page 2
             web_view2 = QWebEngineView(preview_dialog)
-            web_view2.setZoomFactor(0.8)
+            web_view2.setZoomFactor(0.6)
             web_view2.setFixedWidth(int(dialog_width * 0.3))  # Adjust width to 30% for 3 pages
             if len(pages) > 1:
                 web_view2.setHtml(pages[1])
@@ -2779,6 +2782,7 @@ class ExcelViewerApp(QWidget):
                             height: 297mm;
                             font-family: Arial, sans-serif;
                             font-size: 11px;
+                            position: relative;
                         }
                         .header {
                             text-align: center;
@@ -2820,10 +2824,15 @@ class ExcelViewerApp(QWidget):
                             font-weight: bold;
                         }
                         .footer {
-                            margin-top: 15px;
+                            position: fixed;
+                            bottom: 1cm;
+                            left: 1cm;
+                            right: 1cm;
                             text-align: center;
                             font-style: italic;
                             font-size: 10px;
+                            background: white;
+                            padding: 5px;
                         }
                         .legend-row td {
                             text-align: center;
@@ -2831,9 +2840,20 @@ class ExcelViewerApp(QWidget):
                             font-size: 11px;
                             border: none;
                         }
+                        .page-footer {
+                            position: fixed;
+                            bottom: 1cm;
+                            left: 1cm;
+                            right: 1cm;
+                            text-align: center;
+                            font-style: italic;
+                            font-size: 10px;
+                            background: white;
+                            padding: 5px;
+                        }
                     </style>
                     </head>
-                    ''')                
+                    ''')
                 web_view.setHtml(html_content)
                 
                 # Wait for page to load
