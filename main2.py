@@ -11,7 +11,7 @@ from PyQt5.QtGui import (
     QFont, QTextDocument, QPageSize, QPageLayout
 )
 from PyQt5.QtCore import (
-    Qt, QEventLoop, QSizeF, QMarginsF
+    Qt, QEventLoop, QSizeF, QMarginsF, QUrl
 )
 from PyQt5.QtPrintSupport import QPrinter, QPrinterInfo, QPrintDialog, QPrintPreviewDialog
 from PyQt5.QtWebEngineWidgets import QWebEngineView
@@ -24,6 +24,7 @@ import shutil
 import copy
 from openpyxl.utils.cell import get_column_letter
 import re
+import base64
 
 class ExcelViewerApp(QWidget):
     def __init__(self):
@@ -2597,6 +2598,46 @@ class ExcelViewerApp(QWidget):
                 QMessageBox.warning(self, "Warning", "Please select a row to preview first!")
                 return
 
+            # Get absolute path for logo
+            import os
+            import base64
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            logo_path = os.path.join(current_dir, "logo.png")
+            
+            # Baca file logo dan encode ke base64
+            try:
+                # Coba cara pertama dengan path relatif
+                if os.path.exists(logo_path):
+                    with open(logo_path, "rb") as image_file:
+                        logo_base64 = base64.b64encode(image_file.read()).decode('utf-8')
+                        # Konversi ke data URL untuk digunakan dalam HTML dengan format PNG
+                        logo_data_url = f"data:image/png;base64,{logo_base64}"
+                        print(f"Logo encoded successfully. Path: {logo_path}")
+                else:
+                    # Coba dengan direktori saat ini
+                    logo_path_alt = "logo.png"
+                    if os.path.exists(logo_path_alt):
+                        with open(logo_path_alt, "rb") as image_file:
+                            logo_base64 = base64.b64encode(image_file.read()).decode('utf-8')
+                            logo_data_url = f"data:image/png;base64,{logo_base64}"
+                            print(f"Logo encoded successfully using alternative path: {logo_path_alt}")
+                    else:
+                        # Jika masih gagal, periksa direktori di atas
+                        logo_path_parent = os.path.join(os.path.dirname(current_dir), "logo.png")
+                        if os.path.exists(logo_path_parent):
+                            with open(logo_path_parent, "rb") as image_file:
+                                logo_base64 = base64.b64encode(image_file.read()).decode('utf-8')
+                                logo_data_url = f"data:image/png;base64,{logo_base64}"
+                                print(f"Logo encoded successfully using parent directory: {logo_path_parent}")
+                        else:
+                            # Fallback jika semua upaya gagal
+                            print(f"Logo not found in any of these locations: {logo_path}, {logo_path_alt}, {logo_path_parent}")
+                            logo_data_url = ""
+            except Exception as e:
+                print(f"Error encoding logo: {e}")
+                # Fallback jika logo tidak bisa dibaca
+                logo_data_url = ""
+            
             # Get column indices and data
             iq_col = self.get_column_index("IQ ")
             nama_col = self.get_column_index("Nama Peserta")
@@ -2720,9 +2761,8 @@ class ExcelViewerApp(QWidget):
             html_content += f"""
             <div style="width: 100%; margin: 0 auto;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <div style="width: 80px;">
-                        <img src="E:/Ney/Kuliah/Project/Surveyor/logo1.jpg" alt="Logo" style="width: 100%; height: auto;">
-                        <div style="color: #1f4e79; font-weight: bold; text-align: center; font-size: 14px; margin-top: 5px;">BEHAVYOURS</div>
+                    <div style="width: 150px;">
+                        <img src="{logo_data_url}" alt="Logo" style="width: 100%; height: auto;">
                     </div>
                     <div style="text-align: center; flex-grow: 1;">
                         <div style="font-size: 14px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
@@ -2996,9 +3036,8 @@ class ExcelViewerApp(QWidget):
                 <div class="page-break"></div>
                 <div class="page" style="padding: 1cm; font-family: Arial;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <div style="width: 80px;">
-                            <img src="E:/Ney/Kuliah/Project/Surveyor/logo1.jpg" alt="Logo" style="width: 100%; height: auto;">
-                            <div style="color: #1f4e79; font-weight: bold; text-align: center; font-size: 14px; margin-top: 5px;">BEHAVYOURS</div>
+                        <div style="width: 150px;">
+                            <img src="{logo_data_url}" alt="Logo" style="width: 100%; height: auto;">
                         </div>
                         <div style="text-align: center; flex-grow: 1;">
                             <div style="font-size: 14px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
@@ -3091,7 +3130,7 @@ class ExcelViewerApp(QWidget):
                 <div class="page-break"></div>
                 <div class="page" style="padding: 1cm; font-family: Arial;">
                     <div style="display: flex; align-items: center; margin-bottom: 20px;">
-                        <img src="behanyours.png" alt="Logo" style="width: 80px; height: auto; margin-right: 20px;">
+                        <img src="{logo_data_url}" alt="Logo" style="width: 150px; height: auto; margin-right: 20px;">
                         <div style="flex-grow: 1; text-align: center;">
                             <div style="font-size: 14px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
                             <div style="font-size: 12px; color: #1f4e79;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
@@ -3280,129 +3319,144 @@ class ExcelViewerApp(QWidget):
                 "PDF Files (*.pdf)"
             )
             
-            if file_name:
-                # Create printer with A4 settings
-                printer = QPrinter(QPrinter.HighResolution)
-                printer.setOutputFormat(QPrinter.PdfFormat)
-                printer.setOutputFileName(file_name)
-                printer.setPageSize(QPageSize(QPageSize.A4))
+            if not file_name:
+                return  # User canceled the save dialog
                 
-                # Create web view with A4 dimensions
-                web_view = QWebEngineView()
+            # Tambahkan ekstensi .pdf jika tidak ada
+            if not file_name.lower().endswith('.pdf'):
+                file_name += '.pdf'
                 
-                # Update the styles to ensure content fits on one page
-                html_content = html_content.replace('</head>',
-                    '''
-                    <style>
-                        @page {
-                            size: A4;
-                            margin: 1cm;
-                        }
-                        @media print {
-                            body {
-                                width: 210mm;
-                                height: 297mm;
-                                margin: 0;
-                                padding: 1cm;
-                            }
-                            .page {
-                                page-break-after: always;
-                            }
-                            .page:last-child {
-                                page-break-after: avoid;
-                            }
-                        }
+            # Create web view with A4 dimensions
+            web_view = QWebEngineView()
+            
+            # Update the styles to ensure content fits on one page
+            html_content = html_content.replace('</head>',
+                '''
+                <style>
+                    @page {
+                        size: A4;
+                        margin: 1cm;
+                    }
+                    @media print {
                         body {
-                            margin: 0;
-                            padding: 1cm;
                             width: 210mm;
                             height: 297mm;
-                            font-family: Arial, sans-serif;
-                            font-size: 11px;
-                            position: relative;
+                            margin: 0;
+                            padding: 1cm;
                         }
-                        .header {
-                            text-align: center;
-                            margin-bottom: 15px;
+                        .page {
+                            page-break-after: always;
                         }
-                        .header .title {
-                            font-size: 14px;
-                            font-weight: bold;
-                            margin-bottom: 5px;
+                        .page:last-child {
+                            page-break-after: avoid;
                         }
-                        .info-table {
-                            width: 100%;
-                            margin-bottom: 15px;
-                            border-spacing: 0;
-                        }
-                        .info-table td {
-                            padding: 3px;
-                            vertical-align: top;
-                        }
-                        table {
-                            border-collapse: collapse;
-                            width: 100%;
-                        }
-                        .psikogram {
-                            margin-top: 15px;
-                        }
-                        .psikogram th, .psikogram td {
-                            border: 1px solid black;
-                            padding: 4px;
-                            font-size: 11px;
-                        }
-                        .psikogram th {
-                            background-color: #f2f2f2;
-                            text-align: center;
-                        }
-                        .category-header {
-                            background-color: #f8d7da !important;
-                            text-align: center;
-                            font-weight: bold;
-                        }
-                        .footer {
-                            position: fixed;
-                            bottom: 1cm;
-                            left: 1cm;
-                            right: 1cm;
-                            text-align: center;
-                            font-style: italic;
-                            font-size: 10px;
-                            background: white;
-                            padding: 5px;
-                        }
-                        .legend-row td {
-                            text-align: center;
-                            padding: 2px;
-                            font-size: 11px;
-                            border: none;
-                        }
-                        .page-footer {
-                            position: fixed;
-                            bottom: 1cm;
-                            left: 1cm;
-                            right: 1cm;
-                            text-align: center;
-                            font-style: italic;
-                            font-size: 10px;
-                            background: white;
-                            padding: 5px;
-                        }
-                    </style>
-                    </head>
-                    ''')
-                web_view.setHtml(html_content)
-                
-                # Wait for page to load
-                loop = QEventLoop()
-                web_view.loadFinished.connect(loop.quit)
-                loop.exec_()
-                
-                # Print to PDF
-                web_view.page().printToPdf(file_name)
-                
-                QMessageBox.information(self, "Success", "PDF saved successfully!")
-                
+                    }
+                    body {
+                        margin: 0;
+                        padding: 1cm;
+                        width: 210mm;
+                        height: 297mm;
+                        font-family: Arial, sans-serif;
+                        font-size: 11px;
+                        position: relative;
+                    }
+                    .header {
+                        text-align: center;
+                        margin-bottom: 15px;
+                    }
+                    .header .title {
+                        font-size: 14px;
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                    }
+                    .info-table {
+                        width: 100%;
+                        margin-bottom: 15px;
+                        border-spacing: 0;
+                    }
+                    .info-table td {
+                        padding: 3px;
+                        vertical-align: top;
+                    }
+                    table {
+                        border-collapse: collapse;
+                        width: 100%;
+                    }
+                    .psikogram {
+                        margin-top: 15px;
+                    }
+                    .psikogram th, .psikogram td {
+                        border: 1px solid black;
+                        padding: 4px;
+                        font-size: 11px;
+                    }
+                    .psikogram th {
+                        background-color: #f2f2f2;
+                        text-align: center;
+                    }
+                    .category-header {
+                        background-color: #f8d7da !important;
+                        text-align: center;
+                        font-weight: bold;
+                    }
+                    .footer {
+                        position: fixed;
+                        bottom: 1cm;
+                        left: 1cm;
+                        right: 1cm;
+                        text-align: center;
+                        font-style: italic;
+                        font-size: 10px;
+                        background: white;
+                        padding: 5px;
+                    }
+                    .legend-row td {
+                        text-align: center;
+                        padding: 2px;
+                        font-size: 11px;
+                        border: none;
+                    }
+                    .page-footer {
+                        position: fixed;
+                        bottom: 1cm;
+                        left: 1cm;
+                        right: 1cm;
+                        text-align: center;
+                        font-style: italic;
+                        font-size: 10px;
+                        background: white;
+                        padding: 5px;
+                    }
+                </style>
+                </head>
+                ''')
+            web_view.setHtml(html_content)
+            
+            # Wait for page to load
+            loop = QEventLoop()
+            web_view.loadFinished.connect(loop.quit)
+            loop.exec_()
+            
+            # Variable to track if we've already shown a message
+            self.message_shown = False
+            
+            def handle_pdf(data):
+                if data and not self.message_shown:
+                    self.message_shown = True
+                    try:
+                        with open(file_name, 'wb') as f:
+                            f.write(data)
+                        QMessageBox.information(self, "Success", "PDF saved successfully!")
+                    except Exception as e:
+                        QMessageBox.warning(self, "Warning", f"Failed to write PDF: {str(e)}")
+                elif not data and not self.message_shown:
+                    self.message_shown = True
+                    QMessageBox.warning(self, "Warning", "Failed to generate PDF data")
+            
+            # Penting untuk tetap referensi ke web_view agar tidak di-garbage collect
+            self.temp_web_view = web_view
+            web_view.page().printToPdf(handle_pdf)
+            
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error saving PDF: {e}")
             print(f"Error saving PDF: {e}")
