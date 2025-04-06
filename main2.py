@@ -47,7 +47,13 @@ class ExcelViewerApp(QWidget):
             "Daya Abstraksi Verbal", "Berpikir Praktis", "Berpikir Teoritis", 
             "Memori", "WA GE", "RA ZR", "KLASIFIKASI",
             "N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", 
-            "C (Coding)", "D", "R", "Z", "E", "K", "F", "W", "CD", "TV", "BO", "SO", "BX"
+            "C (Coding)", "D", "R", "Z", "E", "K", "F", "W", "CD", "TV", "BO", "SO", "BX",
+            "Intelegensi Umum", "Daya Analisa/ AN", "Kemampuan Verbal/WA GE", "Kemampuan Numerik/ RA ZR", 
+            "Daya Ingat/ME", "Fleksibilitas/ T V", "Sistematika Kerja/ cd", "Inisiatif/W", 
+            "Stabilitas Emosi / E", "Komunikasi / B O", "Keterampilan Interpersonal / S O", "Kerjasama / B X",
+            "Intelegensi Umum.1", "Daya Analisa/ AN.1", "Kemampuan Verbal/WA GE.1", "Kemampuan Numerik/ RA ZR.1", 
+            "Daya Ingat/ME.1", "Fleksibilitas", "Sistematika Kerja/ cd.1", "Inisiatif/W.1", 
+            "Stabilitas Emosi / E.1", "Komunikasi / B O.1", "Keterampilan Sosial / X S", "Kerjasama"
         ]
         self.input_columns = self.columns.copy()
         self.initUI()
@@ -442,23 +448,125 @@ class ExcelViewerApp(QWidget):
                             new_df[col] = new_df[col].astype(str)
 
                     # Konversi kolom angka ke numeric
-                    numeric_columns = ['IQ', 'Konkrit Praktis', 'Verbal', 'Flexibilitas Pikir', 
+                    numeric_columns = ['IQ', 'IQ ', 'Konkrit Praktis', 'Verbal', 'Flexibilitas Pikir', 'Flexibilitas Pikir ', 
                                     'Daya Abstraksi Verbal', 'Berpikir Praktis', 'Berpikir Teoritis', 
                                     'Memori']
                     for col in numeric_columns:
                         if col in new_df.columns:
                             new_df[col] = pd.to_numeric(new_df[col], errors='coerce').fillna(0)
                         else:
-                            new_df[col] = 0
+                            # Tambahkan kolom yang tidak ada hanya jika itu bukan versi duplikat dengan/tanpa spasi
+                            skip_add = False
+                            if col == "IQ" and "IQ " in new_df.columns:
+                                skip_add = True
+                            elif col == "IQ " and "IQ" in new_df.columns:
+                                # Salin nilai dari "IQ" ke "IQ "
+                                new_df["IQ "] = new_df["IQ"].copy()
+                                skip_add = True
+                            elif col == "Flexibilitas Pikir" and "Flexibilitas Pikir " in new_df.columns:
+                                skip_add = True
+                            elif col == "Flexibilitas Pikir " and "Flexibilitas Pikir" in new_df.columns:
+                                # Salin nilai dari "Flexibilitas Pikir" ke "Flexibilitas Pikir "
+                                new_df["Flexibilitas Pikir "] = new_df["Flexibilitas Pikir"].copy()
+                                skip_add = True
+                                
+                            if not skip_add:
+                                new_df[col] = 0
 
                     # Konversi angka ke string untuk tampilan
                     for col in numeric_columns:
                         if col in new_df.columns:
                             new_df[col] = new_df[col].astype(str)
 
+                    # Hitung ulang kolom Unnamed:13 (WA GE), Unnamed:14 (RA ZR), dan KLASIFIKASI
+                    # Pastikan kolom-kolom ini ada
+                    if ("Verbal" in new_df.columns and "Daya Abstraksi Verbal" in new_df.columns):
+                        # Hitung WA GE (Unnamed:13)
+                        verbal_vals = pd.to_numeric(new_df["Verbal"], errors='coerce').fillna(0)
+                        dav_vals = pd.to_numeric(new_df["Daya Abstraksi Verbal"], errors='coerce').fillna(0)
+                        new_df["Unnamed: 13"] = (verbal_vals + dav_vals) / 2
+                        print("Menghitung ulang nilai WA GE (Unnamed:13)")
+
+                    if ("Berpikir Praktis" in new_df.columns and "Berpikir Teoritis" in new_df.columns):
+                        # Hitung RA ZR (Unnamed:14)
+                        bp_vals = pd.to_numeric(new_df["Berpikir Praktis"], errors='coerce').fillna(0)
+                        bt_vals = pd.to_numeric(new_df["Berpikir Teoritis"], errors='coerce').fillna(0)
+                        new_df["Unnamed: 14"] = (bp_vals + bt_vals) / 2
+                        print("Menghitung ulang nilai RA ZR (Unnamed:14)")
+                    
+                    # Pastikan kolom W memiliki nilai
+                    if "W" in new_df.columns:
+                        # Jika ada nilai W di file Excel, gunakan nilai tersebut
+                        pass
+                    else:
+                        # Jika tidak ada, buat kolom dengan nilai default 4.0
+                        new_df["W"] = 4.0
+                        print("Menambahkan kolom W dengan nilai default")
+                        
+                        # Hitung nilai W untuk setiap baris berdasarkan nilai G, F, dan I
+                        if all(col in new_df.columns for col in ["G", "F", "I"]):
+                            print("Menghitung ulang nilai W berdasarkan G, F, dan I")
+                            for idx in new_df.index:
+                                try:
+                                    g_val = pd.to_numeric(new_df.loc[idx, "G"], errors='coerce')
+                                    f_val = pd.to_numeric(new_df.loc[idx, "F"], errors='coerce') 
+                                    i_val = pd.to_numeric(new_df.loc[idx, "I"], errors='coerce')
+                                    
+                                    # Nilai default
+                                    w_val = 4.0
+                                    
+                                    # Logika penentuan nilai W
+                                    if g_val > 6:
+                                        w_val = 2.0
+                                    elif f_val > 6:
+                                        w_val = 3.0
+                                    elif i_val > 6:
+                                        w_val = 7.0
+                                        
+                                    new_df.loc[idx, "W"] = w_val
+                                except Exception as e:
+                                    print(f"Error menghitung W untuk baris {idx}: {e}")
+                                    new_df.loc[idx, "W"] = 4.0  # Default jika ada error
+
+                    # Hitung KLASIFIKASI berdasarkan IQ
+                    if "IQ " in new_df.columns:
+                        iq_vals = pd.to_numeric(new_df["IQ "], errors='coerce').fillna(0)
+                        
+                        def get_klasifikasi(iq):
+                            if iq < 79:
+                                return "Rendah"
+                            elif 79 <= iq < 90:
+                                return "Dibawah Rata-Rata"
+                            elif 90 <= iq < 110:
+                                return "Rata-Rata"
+                            elif 110 <= iq < 120:
+                                return "Diatas Rata-Rata"
+                            else:
+                                return "Superior"
+                        
+                        new_df["KLASIFIKASI"] = iq_vals.apply(get_klasifikasi)
+                        print("Menghitung ulang nilai KLASIFIKASI berdasarkan IQ")
+                    elif "IQ" in new_df.columns:
+                        # Fallback ke "IQ" tanpa spasi jika "IQ " tidak ditemukan
+                        iq_vals = pd.to_numeric(new_df["IQ"], errors='coerce').fillna(0)
+                        new_df["KLASIFIKASI"] = iq_vals.apply(get_klasifikasi)
+                        print("Menghitung ulang nilai KLASIFIKASI berdasarkan IQ (tanpa spasi)")
+
+                    # Tambahkan kolom penting lainnya jika belum ada
+                    important_columns = ["Unnamed: 13", "Unnamed: 14", "KLASIFIKASI"]
+                    for col in important_columns:
+                        if col not in new_df.columns:
+                            print(f"Menambahkan kolom yang hilang: {col}")
+                            new_df[col] = ""
+
                     self.df_sheet1 = new_df.fillna("")
                     self.columns = list(new_df.columns)
                     self.show_table(self.df_sheet1)
+                    
+                    # Recalculate values for all rows
+                    for row in range(self.table.rowCount()):
+                        self.recalculate_values(row)
+                        
                 else:
                     print("Could not find the start of data in Sheet1")
                     self.btn_select.setEnabled(True)
@@ -480,19 +588,170 @@ class ExcelViewerApp(QWidget):
 
     def show_table(self, df):
         try:
-            self.table.setRowCount(len(df))
-            self.table.setColumnCount(len(df.columns))
-            self.table.setHorizontalHeaderLabels(df.columns)
-
-            for row in range(len(df)):
-                for col, column_name in enumerate(df.columns):
-                    value = str(df.iloc[row][column_name])
-                    self.table.setItem(row, col, QTableWidgetItem(value))
-
-            # Change from Stretch to ResizeToContents for better visibility of column headers
-            self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+            # Pastikan kolom-kolom penting ada
+            important_columns = ["Unnamed: 13", "Unnamed: 14", "KLASIFIKASI"]
+            df_with_columns = df.copy()
+            
+            # Tambahkan kolom yang hilang
+            for col in important_columns:
+                if col not in df_with_columns.columns:
+                    print(f"Menambahkan kolom yang hilang: {col}")
+                    df_with_columns[col] = ""
+            
+            # Tambahkan kolom-kolom psikogram jika belum ada
+            psikogram_columns = [
+                "Intelegensi Umum.1", "Daya Analisa/ AN.1", "Kemampuan Verbal/WA GE.1", 
+                "Kemampuan Numerik/ RA ZR.1", "Daya Ingat/ME.1", "Fleksibilitas",
+                "Sistematika Kerja/ cd.1", "Inisiatif/W.1", "Stabilitas Emosi / E.1",
+                "Komunikasi / B O.1", "Keterampilan Sosial / X S", "Kerjasama"
+            ]
+            
+            for col in psikogram_columns:
+                if col not in df_with_columns.columns:
+                    print(f"Menambahkan kolom psikogram yang hilang: {col}")
+                    df_with_columns[col] = ""
+                else:
+                    print(f"Kolom psikogram {col} sudah ada dengan nilai: {df_with_columns[col].values}")
+            
+            # Hapus kolom duplikat "IQ" dan "Flexibilitas Pikir" tanpa spasi yang muncul setelah kolom "Kerjasama"
+            # Identifikasi posisi kolom "Kerjasama"
+            if "Kerjasama" in df_with_columns.columns:
+                kerjasama_idx = df_with_columns.columns.get_loc("Kerjasama")
+                cols_to_drop = []
+                
+                # Cek kolom-kolom setelah "Kerjasama"
+                for col in df_with_columns.columns[kerjasama_idx+1:]:
+                    if col in ['IQ', 'IQ ', ' IQ', 'Flexibilitas Pikir', 'Flexibilitas Pikir ', ' Flexibilitas Pikir']:
+                        cols_to_drop.append(col)
+                
+                if cols_to_drop:
+                    df_with_columns = df_with_columns.drop(columns=cols_to_drop)
+                    print(f"Menghapus kolom duplikat: {cols_to_drop}")
+            
+            # Setup table untuk menampilkan data
+            self.table.setRowCount(df_with_columns.shape[0])
+            self.table.setColumnCount(len(df_with_columns.columns))
+            self.table.setHorizontalHeaderLabels(df_with_columns.columns)
+            
+            # Populate table with data
+            for i, row in df_with_columns.iterrows():
+                for j, (col_name, val) in enumerate(row.items()):
+                    item = QTableWidgetItem(str(val))
+                    self.table.setItem(i, j, item)
+            
+            # Resize columns to fit content
+            self.table.resizeColumnsToContents()
+            
+            # Perbarui daftar kolom
+            self.columns = list(df_with_columns.columns)
+            
+            # Periksa kolom-kolom psikogram yang kosong
+            if hasattr(self, 'df_sheet2') and self.df_sheet2 is not None:
+                try:
+                    # Ambil kolom D dari Sheet2 untuk deskripsi
+                    column_d = None
+                    if 'Unnamed: 3' in self.df_sheet2.columns:
+                        column_d = self.df_sheet2['Unnamed: 3']
+                    else:
+                        # Coba ambil berdasarkan indeks kolom
+                        column_d = self.df_sheet2.iloc[:, 3] if self.df_sheet2.shape[1] > 3 else None
+                    
+                    if column_d is not None:
+                        print("Menginisialisasi kolom psikogram dari Sheet2...")
+                        
+                        # Hitung ulang nilai-nilai untuk semua baris
+                        for row in range(self.table.rowCount()):
+                            self.recalculate_values(row)
+                        
+                        # Dapatkan indeks kolom psikogram yang kita butuhkan
+                        psikogram_col_indices = {}
+                        for psikogram_col in psikogram_columns:
+                            if psikogram_col in self.columns:
+                                col_idx = self.columns.index(psikogram_col)
+                                psikogram_col_indices[psikogram_col] = col_idx
+                                print(f"Kolom psikogram {psikogram_col} ada di indeks {col_idx}")
+                        
+                        # Periksa setiap baris untuk nilai kolom psikogram kosong
+                        for row in range(self.table.rowCount()):
+                            # Map kategori ke kolom yang sesuai
+                            kategori_map = {
+                                "Intelegensi Umum.1": self.get_cell_text(row, 42),
+                                "Daya Analisa/ AN.1": self.get_cell_text(row, 43),
+                                "Kemampuan Verbal/WA GE.1": self.get_cell_text(row, 44),
+                                "Kemampuan Numerik/ RA ZR.1": self.get_cell_text(row, 45),
+                                "Daya Ingat/ME.1": self.get_cell_text(row, 46),
+                                "Fleksibilitas": self.get_cell_text(row, 47),
+                                "Sistematika Kerja/ cd.1": self.get_cell_text(row, 48),
+                                "Inisiatif/W.1": self.get_cell_text(row, 49),
+                                "Stabilitas Emosi / E.1": self.get_cell_text(row, 50),
+                                "Komunikasi / B O.1": self.get_cell_text(row, 51),
+                                "Keterampilan Sosial / X S": self.get_cell_text(row, 52),
+                                "Kerjasama": self.get_cell_text(row, 53)
+                            }
+                            
+                            # Map indeks deskripsi di Sheet2 sesuai kategori dan kolom
+                            sheet2_indices = {
+                                ("Intelegensi Umum.1", "B"): 1,
+                                ("Intelegensi Umum.1", "C"): 2,
+                                ("Intelegensi Umum.1", "K"): 3,
+                                ("Daya Analisa/ AN.1", "B"): 4,
+                                ("Daya Analisa/ AN.1", "C"): 5,
+                                ("Daya Analisa/ AN.1", "K"): 6,
+                                ("Kemampuan Verbal/WA GE.1", "B"): 7,
+                                ("Kemampuan Verbal/WA GE.1", "C"): 8,
+                                ("Kemampuan Verbal/WA GE.1", "K"): 9,
+                                ("Kemampuan Numerik/ RA ZR.1", "B"): 10,
+                                ("Kemampuan Numerik/ RA ZR.1", "C"): 11,
+                                ("Kemampuan Numerik/ RA ZR.1", "K"): 12,
+                                ("Daya Ingat/ME.1", "B"): 13,
+                                ("Daya Ingat/ME.1", "C"): 14,
+                                ("Daya Ingat/ME.1", "K"): 15,
+                                ("Fleksibilitas", "B"): 16,
+                                ("Fleksibilitas", "C"): 17,
+                                ("Fleksibilitas", "K"): 18,
+                                ("Sistematika Kerja/ cd.1", "B"): 19,
+                                ("Sistematika Kerja/ cd.1", "C"): 20,
+                                ("Sistematika Kerja/ cd.1", "K"): 21,
+                                ("Inisiatif/W.1", "B"): 22,
+                                ("Inisiatif/W.1", "C"): 23,
+                                ("Inisiatif/W.1", "K"): 24,
+                                ("Stabilitas Emosi / E.1", "B"): 25,
+                                ("Stabilitas Emosi / E.1", "C"): 26,
+                                ("Stabilitas Emosi / E.1", "K"): 27,
+                                ("Komunikasi / B O.1", "B"): 28,
+                                ("Komunikasi / B O.1", "C"): 29,
+                                ("Komunikasi / B O.1", "K"): 30,
+                                ("Keterampilan Sosial / X S", "B"): 31,
+                                ("Keterampilan Sosial / X S", "C"): 32,
+                                ("Keterampilan Sosial / X S", "K"): 33,
+                                ("Kerjasama", "B"): 34,
+                                ("Kerjasama", "C"): 35,
+                                ("Kerjasama", "K"): 36
+                            }
+                            
+                            # Isi kolom psikogram yang kosong berdasarkan kategori
+                            for psikogram_col, col_idx in psikogram_col_indices.items():
+                                item = self.table.item(row, col_idx)
+                                kategori = kategori_map.get(psikogram_col)
+                                
+                                # Jika kolom kosong dan kategori valid, isi dengan deskripsi dari Sheet2
+                                if (not item or not item.text() or item.text().strip() == "") and kategori in ["B", "C", "K"]:
+                                    print(f"Kolom {psikogram_col} kosong di baris {row}, kategori: {kategori}")
+                                    
+                                    # Dapatkan indeks deskripsi di Sheet2
+                                    sheet2_idx = sheet2_indices.get((psikogram_col, kategori))
+                                    if sheet2_idx is not None and sheet2_idx < len(column_d):
+                                        deskripsi = str(column_d.iloc[sheet2_idx])
+                                        self.table.setItem(row, col_idx, QTableWidgetItem(deskripsi))
+                                        print(f"Berhasil mengisi {psikogram_col} dengan '{deskripsi}'")
+                except Exception as e:
+                    print(f"Error saat mengisi kolom psikogram: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            print("Berhasil menampilkan tabel")
         except Exception as e:
-            print(f"Error showing table: {e}")
+            print(f"Error saat menampilkan tabel: {e}")
             import traceback
             traceback.print_exc()
 
@@ -590,39 +849,6 @@ class ExcelViewerApp(QWidget):
                     print(f"Invalid numeric value: {field.text()}")
                     return
         
-        # Calculate derived values
-        # Get the exact column names from self.columns
-        wa_ge_col_name = 'Unnamed: 13'
-        ra_zr_col_name = 'Unnamed: 14'
-        iq_klas_col_name = 'KLASIFIKASI'
-        
-        # Calculate WA GE
-        verbal_val = float(row_data.get("Verbal", 0))
-        dav_val = float(row_data.get("Daya Abstraksi Verbal", 0))
-        wa_ge = (verbal_val + dav_val) / 2
-        row_data[wa_ge_col_name] = wa_ge
-        
-        # Calculate RA ZR
-        bp_val = float(row_data.get("Berpikir Praktis", 0))
-        bt_val = float(row_data.get("Berpikir Teoritis", 0))
-        ra_zr = (bp_val + bt_val) / 2
-        row_data[ra_zr_col_name] = ra_zr
-        
-        # Calculate IQ classification
-        iq = float(row_data.get("IQ", 0))
-        if iq < 79:
-            iq_klasifikasi = "Rendah"
-        elif 79 <= iq < 90:
-            iq_klasifikasi = "Dibawah Rata-Rata"
-        elif 90 <= iq < 110:
-            iq_klasifikasi = "Rata-Rata"
-        elif 110 <= iq < 120:
-            iq_klasifikasi = "Diatas Rata-Rata"
-        else:
-            iq_klasifikasi = "Superior"
-        
-        row_data[iq_klas_col_name] = iq_klasifikasi
-        
         # Add PAPIKOSTICK values
         papiko_start_idx = ist_start_idx + len(self.ist_inputs) + 3  # +3 for WA GE, RA ZR, IQ KLASIFIKASI
         data_idx = 0  # Indeks input field (mengabaikan "C (Coding)")
@@ -633,12 +859,6 @@ class ExcelViewerApp(QWidget):
 
             col_name = self.columns[col_idx]
 
-            # Jika kolom adalah "C (Coding)", isi otomatis berdasarkan "C"
-            if col_name == "C (Coding)":
-                c_value = float(row_data.get("C", 0))
-                row_data["C (Coding)"] = 10 - c_value if 1 <= c_value <= 9 else 0
-                continue  # Lewati iterasi ini agar tidak mengganggu indeks input
-
             # Pastikan tidak melebihi jumlah input field
             if data_idx < len(self.papikostick_inputs):
                 try:
@@ -648,293 +868,7 @@ class ExcelViewerApp(QWidget):
                     return
 
             data_idx += 1  # Hanya naikkan indeks input field jika bukan "C (Coding)"
-
-        # Calculate C (Coding) based on the formula
-        c_value = float(row_data.get("C", 0))
-        c_coding = 0
-        if c_value == 1:
-            c_coding = 9
-        elif c_value == 2:
-            c_coding = 8
-        elif c_value == 3:
-            c_coding = 7
-        elif c_value == 4:
-            c_coding = 6
-        elif c_value == 5:
-            c_coding = 5
-        elif c_value == 6:
-            c_coding = 4
-        elif c_value == 7:
-            c_coding = 3
-        elif c_value == 8:
-            c_coding = 2
-        elif c_value == 9:
-            c_coding = 1
         
-        row_data["C (Coding)"] = c_coding
-
-         # Hitung kolom otomatis berdasarkan rumus
-        try:
-            row_data["CD"] = (row_data.get("C", 0) + row_data.get("D", 0)) / 2
-            row_data["TV"] = (row_data.get("T", 0) + row_data.get("V", 0)) / 2
-            row_data["BO"] = (row_data.get("B", 0) + row_data.get("O", 0)) / 2
-            row_data["SO"] = (row_data.get("S", 0) + row_data.get("O", 0)) / 2
-            row_data["BX"] = (row_data.get("B", 0) + row_data.get("X", 0)) / 2
-        except TypeError as e:
-            print(f"Error calculating derived columns: {e}")
-        
-        # Hitung Intelegensi Umum berdasarkan nilai IQ
-        iq_value = row_data.get("IQ", 0)  # Ambil nilai IQ, default ke 0 jika kosong
-
-        if iq_value < 90:
-            row_data["Intelegensi Umum"] = "K"  # Kurang
-        elif 90 <= iq_value <= 109:
-            row_data["Intelegensi Umum"] = "C"  # Cukup
-        else:
-            row_data["Intelegensi Umum"] = "B"  # Baik
-
-        # Hitung Daya Analisa/AN berdasarkan nilai Flexibilitas Pikir
-        flex_pikir_value = row_data.get("Flexibilitas Pikir", 0)  # Ambil nilai, default ke 0 jika kosong
-
-        if flex_pikir_value < 90:
-            row_data["Daya Analisa/ AN"] = "K"  # Kurang
-        elif flex_pikir_value < 110:
-            row_data["Daya Analisa/ AN"] = "C"  # Cukup
-        else:
-            row_data["Daya Analisa/ AN"] = "B"  # Baik
-
-        # Hitung Kemampuan Verbal/WA GE berdasarkan nilai Unnamed: 13
-        unnamed_13_value = row_data.get("Unnamed: 13", 0)  # Ambil nilai, default ke 0 jika kosong
-
-        if unnamed_13_value < 90:
-            row_data["Kemampuan Verbal/WA GE"] = "K"  # Kurang
-        elif unnamed_13_value < 110:
-            row_data["Kemampuan Verbal/WA GE"] = "C"  # Cukup
-        else:
-            row_data["Kemampuan Verbal/WA GE"] = "B"  # Baik
-
-        # Hitung Kemampuan Numerik/RA ZR berdasarkan nilai Unnamed: 14
-        unnamed_14_value = row_data.get("Unnamed: 14", 0)  # Ambil nilai, default ke 0 jika kosong
-
-        if unnamed_14_value < 90:
-            row_data["Kemampuan Numerik/ RA ZR"] = "K"  # Kurang
-        elif unnamed_14_value < 110:
-            row_data["Kemampuan Numerik/ RA ZR"] = "C"  # Cukup
-        else:
-            row_data["Kemampuan Numerik/ RA ZR"] = "B"  # Baik
-        
-        # Perhitungan otomatis berdasarkan rumus yang diberikan
-
-        # Daya Ingat/ME (dari kolom Memori)
-        memori_value = row_data.get("Memori", 0)
-        if memori_value < 90:
-            row_data["Daya Ingat/ME"] = "K"
-        elif memori_value < 110:
-            row_data["Daya Ingat/ME"] = "C"
-        else:
-            row_data["Daya Ingat/ME"] = "B"
-
-        # Fleksibilitas/TV (dari kolom TV)
-        tv_value = row_data.get("TV", 0)
-        if tv_value < 4:
-            row_data["Fleksibilitas/ T V"] = "K"
-        elif tv_value < 6:
-            row_data["Fleksibilitas/ T V"] = "C"
-        else:
-            row_data["Fleksibilitas/ T V"] = "B"
-
-        # Sistematika Kerja/CD (dari kolom CD)
-        cd_value = row_data.get("CD", 0)
-        if cd_value < 4:
-            row_data["Sistematika Kerja/ cd"] = "K"
-        elif cd_value < 6:
-            row_data["Sistematika Kerja/ cd"] = "C"
-        else:
-            row_data["Sistematika Kerja/ cd"] = "B"
-
-        # Inisiatif/W (dari kolom W)
-        w_value = row_data.get("W", 0)
-        if w_value < 4:
-            row_data["Inisiatif/W"] = "B"
-        elif w_value < 6:
-            row_data["Inisiatif/W"] = "C"
-        else:
-            row_data["Inisiatif/W"] = "K"
-
-        # Stabilitas Emosi/E (dari kolom E)
-        e_value = row_data.get("E", 0)
-        if e_value < 4:
-            row_data["Stabilitas Emosi / E"] = "B"
-        elif e_value < 6:
-            row_data["Stabilitas Emosi / E"] = "C"
-        else:
-            row_data["Stabilitas Emosi / E"] = "K"
-
-        # Komunikasi/BO (dari kolom BO)
-        bo_value = row_data.get("BO", 0)
-        if bo_value < 4:
-            row_data["Komunikasi / B O"] = "K"
-        elif bo_value < 6:
-            row_data["Komunikasi / B O"] = "C"
-        else:
-            row_data["Komunikasi / B O"] = "B"
-
-        # Keterampilan Interpersonal/SO (dari kolom SO)
-        so_value = row_data.get("SO", 0)
-        if so_value < 4:
-            row_data["Keterampilan Interpersonal / S O"] = "K"
-        elif so_value < 6:
-            row_data["Keterampilan Interpersonal / S O"] = "C"
-        else:
-            row_data["Keterampilan Interpersonal / S O"] = "B"
-
-        # Kerjasama/BX (dari kolom BX)
-        bx_value = row_data.get("BX", 0)
-        if bx_value < 4:
-            row_data["Kerjasama / B X"] = "K"
-        elif bx_value < 6:
-            row_data["Kerjasama / B X"] = "C"
-        else:
-            row_data["Kerjasama / B X"] = "B"
-
-        try:
-            # Pastikan kolom 'D' ada atau cukup kolom dalam Sheet2
-            if "D" in self.sheet2_data.columns or self.sheet2_data.shape[1] > 3:
-                column_d = self.sheet2_data["D"] if "D" in self.sheet2_data.columns else self.sheet2_data.iloc[:, 3]
-
-                # Intelegensi Umum
-                intelegensi_umum_value = row_data.get("Intelegensi Umum", "")
-                if len(self.sheet2_data) > 4:
-                    if intelegensi_umum_value == "K":
-                        row_data["Intelegensi Umum.1"] = column_d.iloc[3]  # D5
-                    elif intelegensi_umum_value == "B":
-                        row_data["Intelegensi Umum.1"] = column_d.iloc[1]  # D3
-                    elif intelegensi_umum_value == "C":
-                        row_data["Intelegensi Umum.1"] = column_d.iloc[2]  # D4
-
-                # Daya Analisa
-                daya_analisa_value = row_data.get("Daya Analisa/ AN", "")
-                if len(self.sheet2_data) > 7:
-                    if daya_analisa_value == "B":
-                        row_data["Daya Analisa/ AN.1"] = column_d.iloc[4]  # D6
-                    elif daya_analisa_value == "C":
-                        row_data["Daya Analisa/ AN.1"] = column_d.iloc[5]  # D7
-                    elif daya_analisa_value == "K":
-                        row_data["Daya Analisa/ AN.1"] = column_d.iloc[6]  # D8
-
-                # Kemampuan Verbal
-                kemampuan_verbal_value = row_data.get("Kemampuan Verbal/WA GE", "")
-                if len(self.sheet2_data) > 10:
-                    if kemampuan_verbal_value == "B":
-                        row_data["Kemampuan Verbal/WA GE.1"] = column_d.iloc[7]  # D9
-                    elif kemampuan_verbal_value == "C":
-                        row_data["Kemampuan Verbal/WA GE.1"] = column_d.iloc[8]  # D10
-                    elif kemampuan_verbal_value == "K":
-                        row_data["Kemampuan Verbal/WA GE.1"] = column_d.iloc[9]  # D11
-
-                # Kemampuan Numerik
-                kemampuan_numerik_value = row_data.get("Kemampuan Numerik/ RA ZR", "")
-                if len(self.sheet2_data) > 13:
-                    if kemampuan_numerik_value == "B":
-                        row_data["Kemampuan Numerik/ RA ZR.1"] = column_d.iloc[10]  # D12
-                    elif kemampuan_numerik_value == "C":
-                        row_data["Kemampuan Numerik/ RA ZR.1"] = column_d.iloc[11]  # D13
-                    elif kemampuan_numerik_value == "K":
-                        row_data["Kemampuan Numerik/ RA ZR.1"] = column_d.iloc[12]  # D14
-
-                # Daya Ingat
-                daya_ingat_value = row_data.get("Daya Ingat/ME", "")
-                if len(self.sheet2_data) > 16:
-                    if daya_ingat_value == "B":
-                        row_data["Daya Ingat/ME.1"] = column_d.iloc[13]  # D15
-                    elif daya_ingat_value == "C":
-                        row_data["Daya Ingat/ME.1"] = column_d.iloc[14]  # D16
-                    elif daya_ingat_value == "K":
-                        row_data["Daya Ingat/ME.1"] = column_d.iloc[15]  # D17
-
-                # Fleksibilitas
-                fleksibilitas_value = row_data.get("Fleksibilitas/ T V", "")
-                if len(self.sheet2_data) > 19:
-                    if fleksibilitas_value == "B":
-                        row_data["Fleksibilitas"] = column_d.iloc[16]  # D18
-                    elif fleksibilitas_value == "C":
-                        row_data["Fleksibilitas"] = column_d.iloc[17]  # D19
-                    elif fleksibilitas_value == "K":
-                        row_data["Fleksibilitas"] = column_d.iloc[18]  # D20
-
-                # Sistematika Kerja
-                sistematika_kerja_value = row_data.get("Sistematika Kerja/ cd", "")
-                if len(self.sheet2_data) > 22:
-                    if sistematika_kerja_value == "B":
-                        row_data["Sistematika Kerja/ cd.1"] = column_d.iloc[19]  # D21
-                    elif sistematika_kerja_value == "C":
-                        row_data["Sistematika Kerja/ cd.1"] = column_d.iloc[20]  # D22
-                    elif sistematika_kerja_value == "K":
-                        row_data["Sistematika Kerja/ cd.1"] = column_d.iloc[21]  # D23
-
-                # Inisiatif
-                inisiatif_value = row_data.get("Inisiatif/W", "")
-                if len(self.sheet2_data) > 25:
-                    if inisiatif_value == "B":
-                        row_data["Inisiatif/W.1"] = column_d.iloc[22]  # D24
-                    elif inisiatif_value == "C":
-                        row_data["Inisiatif/W.1"] = column_d.iloc[23]  # D25
-                    elif inisiatif_value == "K":
-                        row_data["Inisiatif/W.1"] = column_d.iloc[24]  # D26
-
-                # Stabilitas Emosi
-                stabilitas_emosi_value = row_data.get("Stabilitas Emosi / E", "")
-                if len(self.sheet2_data) > 28:
-                    if stabilitas_emosi_value == "B":
-                        row_data["Stabilitas Emosi / E.1"] = column_d.iloc[25]  # D27
-                    elif stabilitas_emosi_value == "C":
-                        row_data["Stabilitas Emosi / E.1"] = column_d.iloc[26]  # D28
-                    elif stabilitas_emosi_value == "K":
-                        row_data["Stabilitas Emosi / E.1"] = column_d.iloc[27]  # D29
-
-                # Komunikasi
-                komunikasi_value = row_data.get("Komunikasi / B O", "")
-                if len(self.sheet2_data) > 31:
-                    if komunikasi_value == "B":
-                        row_data["Komunikasi / B O.1"] = column_d.iloc[28]  # D30
-                    elif komunikasi_value == "C":
-                        row_data["Komunikasi / B O.1"] = column_d.iloc[29]  # D31
-                    elif komunikasi_value == "K":
-                        row_data["Komunikasi / B O.1"] = column_d.iloc[30]  # D32
-
-                # Keterampilan Sosial
-                keterampilan_sosial_value = row_data.get("Keterampilan Interpersonal / S O", "")
-                if len(self.sheet2_data) > 34:
-                    if keterampilan_sosial_value == "B":
-                        row_data["Keterampilan Sosial / X S"] = column_d.iloc[31]  # D33
-                    elif keterampilan_sosial_value == "C":
-                        row_data["Keterampilan Sosial / X S"] = column_d.iloc[32]  # D34
-                    elif keterampilan_sosial_value == "K":
-                        row_data["Keterampilan Sosial / X S"] = column_d.iloc[33]  # D35
-
-                # Kerjasama
-                kerjasama_value = row_data.get("Kerjasama / B X", "")
-
-                # Cek apakah jumlah data cukup
-                if len(self.sheet2_data) >= 37:
-                    kerjasama_value = row_data.get("Kerjasama / B X", "")
-                    
-                    column_d = self.sheet2_data["D"] if "D" in self.sheet2_data.columns else self.sheet2_data.iloc[:, 3]
-                    
-                    if kerjasama_value == "B" and pd.notna(column_d.iloc[34]):
-                        row_data["Kerjasama"] = column_d.iloc[34]  # D36
-                    elif kerjasama_value == "C" and pd.notna(column_d.iloc[35]):
-                        row_data["Kerjasama"] = column_d.iloc[35]  # D37
-                    elif kerjasama_value == "K" and pd.notna(column_d.iloc[36]):
-                        row_data["Kerjasama"] = column_d.iloc[36]  # D38
-
-
-            else:
-                print("Column 'D' not found in Sheet2")
-
-        except Exception as e:
-            print(f"Error calculating values: {e}")
-
         # Determine action based on mode
         if mode == "add":
             # Add new row to the table
@@ -943,6 +877,10 @@ class ExcelViewerApp(QWidget):
             for col, column_name in enumerate(self.columns):
                 value = row_data.get(column_name, "")
                 self.table.setItem(row, col, QTableWidgetItem(str(value)))
+                
+            # Recalculate values for the new row
+            self.recalculate_values(row)
+            
         elif mode == "edit":
             # Update existing row
             selected_row = self.table.currentRow()
@@ -950,6 +888,9 @@ class ExcelViewerApp(QWidget):
                 for col, column_name in enumerate(self.columns):
                     value = row_data.get(column_name, "")
                     self.table.setItem(selected_row, col, QTableWidgetItem(str(value)))
+                
+                # Recalculate values for the edited row
+                self.recalculate_values(selected_row)
             else:
                 print("No row selected for editing")
 
@@ -962,20 +903,27 @@ class ExcelViewerApp(QWidget):
 
     def recalculate_values(self, row):
         try:
+            # Dapatkan nilai dasar dari kolom-kolom
             iq = self.get_cell_value(row, 5)
+            konkrit_praktis = self.get_cell_value(row, 6)
             verbal = self.get_cell_value(row, 7)
+            flexibilitas_pikir = self.get_cell_value(row, 8)
             daya_abstraksi_verbal = self.get_cell_value(row, 9)
             berpikir_praktis = self.get_cell_value(row, 10)
             berpikir_teoritis = self.get_cell_value(row, 11)
+            memori = self.get_cell_value(row, 12)
 
+            # Hitung WA GE (Unnamed: 13)
             if verbal is not None and daya_abstraksi_verbal is not None:
                 wa_ge = (verbal + daya_abstraksi_verbal) / 2
                 self.table.setItem(row, 13, QTableWidgetItem(str(wa_ge)))
 
+            # Hitung RA ZR (Unnamed: 14)
             if berpikir_praktis is not None and berpikir_teoritis is not None:
                 ra_zr = (berpikir_praktis + berpikir_teoritis) / 2
                 self.table.setItem(row, 14, QTableWidgetItem(str(ra_zr)))
 
+            # Hitung KLASIFIKASI berdasarkan IQ
             if iq is not None:
                 if iq < 79:
                     iq_klasifikasi = "Rendah"
@@ -988,13 +936,327 @@ class ExcelViewerApp(QWidget):
                 else:
                     iq_klasifikasi = "Superior"
                 self.table.setItem(row, 15, QTableWidgetItem(iq_klasifikasi))
+                
+            # Dapatkan nilai PAPIKOSTICK
+            try:
+                n_val = self.convert_to_float(self.get_cell_text(row, 16))
+                g_val = self.convert_to_float(self.get_cell_text(row, 17))
+                a_val = self.convert_to_float(self.get_cell_text(row, 18))
+                l_val = self.convert_to_float(self.get_cell_text(row, 19))
+                p_val = self.convert_to_float(self.get_cell_text(row, 20))
+                i_val = self.convert_to_float(self.get_cell_text(row, 21))
+                t_val = self.convert_to_float(self.get_cell_text(row, 22))
+                v_val = self.convert_to_float(self.get_cell_text(row, 23))
+                s_val = self.convert_to_float(self.get_cell_text(row, 24))
+                b_val = self.convert_to_float(self.get_cell_text(row, 25))
+                o_val = self.convert_to_float(self.get_cell_text(row, 26))
+                x_val = self.convert_to_float(self.get_cell_text(row, 27))
+                c_val = self.convert_to_float(self.get_cell_text(row, 28))
+                d_val = self.convert_to_float(self.get_cell_text(row, 30))
+                r_val = self.convert_to_float(self.get_cell_text(row, 31))
+                z_val = self.convert_to_float(self.get_cell_text(row, 32))
+                e_val = self.convert_to_float(self.get_cell_text(row, 33))
+                k_val = self.convert_to_float(self.get_cell_text(row, 34))
+                f_val = self.convert_to_float(self.get_cell_text(row, 35))
+                
+                # Set nilai pada kolom W (36) berdasarkan nilai-nilai pada gambar 1 (2.0, 3.0, 4.0, atau 7.0)
+                # Atur nilai W berdasarkan kriteria yang ditampilkan pada gambar
+                # Nilai bobot default - kita menggunakan 4.0 sebagai nilai default
+                w_val = 4.0
+                
+                # Berdasarkan gambar, kita perlu mengatur nilai W dengan nilai yang sesuai
+                if g_val is not None and g_val > 6:  # Contoh: jika G tinggi, W lebih rendah
+                    w_val = 2.0
+                elif f_val is not None and f_val > 6:  # Contoh: jika F tinggi, W sedang
+                    w_val = 3.0
+                elif i_val is not None and i_val > 6:  # Contoh: jika I tinggi, W lebih tinggi
+                    w_val = 7.0
+                    
+                # Set nilai W ke dalam tabel
+                self.table.setItem(row, 36, QTableWidgetItem(str(w_val)))
+
+                # Hitung C (Coding) berdasarkan C
+                if 1 <= c_val <= 9:
+                    c_coding = 10 - c_val
+                    self.table.setItem(row, 29, QTableWidgetItem(str(c_coding)))
+
+                # Hitung kolom kombinasi
+                if c_val is not None and d_val is not None:
+                    cd_val = (c_val + d_val) / 2
+                    self.table.setItem(row, 37, QTableWidgetItem(str(cd_val)))
+
+                if t_val is not None and v_val is not None:
+                    tv_val = (t_val + v_val) / 2
+                    self.table.setItem(row, 38, QTableWidgetItem(str(tv_val)))
+
+                if b_val is not None and o_val is not None:
+                    bo_val = (b_val + o_val) / 2
+                    self.table.setItem(row, 39, QTableWidgetItem(str(bo_val)))
+
+                if s_val is not None and o_val is not None:
+                    so_val = (s_val + o_val) / 2
+                    self.table.setItem(row, 40, QTableWidgetItem(str(so_val)))
+
+                if b_val is not None and x_val is not None:
+                    bx_val = (b_val + x_val) / 2
+                    self.table.setItem(row, 41, QTableWidgetItem(str(bx_val)))
+                
+                # Hitung kategori untuk kolom berdasarkan IQ
+                if iq is not None:
+                    if iq < 90:
+                        self.table.setItem(row, 42, QTableWidgetItem("K"))  # Intelegensi Umum
+                    elif 90 <= iq <= 109:
+                        self.table.setItem(row, 42, QTableWidgetItem("C"))
+                    else:
+                        self.table.setItem(row, 42, QTableWidgetItem("B"))
+
+                # Hitung kategori untuk kolom berdasarkan Flexibilitas Pikir
+                if flexibilitas_pikir is not None:
+                    if flexibilitas_pikir < 90:
+                        self.table.setItem(row, 43, QTableWidgetItem("K"))  # Daya Analisa
+                    elif flexibilitas_pikir < 110:
+                        self.table.setItem(row, 43, QTableWidgetItem("C"))
+                    else:
+                        self.table.setItem(row, 43, QTableWidgetItem("B"))
+
+                # Kemampuan Verbal/WA GE
+                if wa_ge is not None:
+                    if wa_ge < 90:
+                        self.table.setItem(row, 44, QTableWidgetItem("K"))
+                    elif wa_ge < 110:
+                        self.table.setItem(row, 44, QTableWidgetItem("C"))
+                    else:
+                        self.table.setItem(row, 44, QTableWidgetItem("B"))
+
+                # Kemampuan Numerik/RA ZR
+                if ra_zr is not None:
+                    if ra_zr < 90:
+                        self.table.setItem(row, 45, QTableWidgetItem("K"))
+                    elif ra_zr < 110:
+                        self.table.setItem(row, 45, QTableWidgetItem("C"))
+                    else:
+                        self.table.setItem(row, 45, QTableWidgetItem("B"))
+
+                # Daya Ingat/ME
+                if memori is not None:
+                    if memori < 90:
+                        self.table.setItem(row, 46, QTableWidgetItem("K"))
+                    elif memori < 110:
+                        self.table.setItem(row, 46, QTableWidgetItem("C"))
+                    else:
+                        self.table.setItem(row, 46, QTableWidgetItem("B"))
+
+                # Fleksibilitas/T V
+                if tv_val is not None:
+                    if tv_val < 4:
+                        self.table.setItem(row, 47, QTableWidgetItem("K"))
+                    elif tv_val < 6:
+                        self.table.setItem(row, 47, QTableWidgetItem("C"))
+                    else:
+                        self.table.setItem(row, 47, QTableWidgetItem("B"))
+
+                # Sistematika Kerja/cd
+                if cd_val is not None:
+                    if cd_val < 4:
+                        self.table.setItem(row, 48, QTableWidgetItem("K"))
+                    elif cd_val < 6:
+                        self.table.setItem(row, 48, QTableWidgetItem("C"))
+                    else:
+                        self.table.setItem(row, 48, QTableWidgetItem("B"))
+
+                # Inisiatif/W
+                if w_val is not None:
+                    if w_val < 4:
+                        self.table.setItem(row, 49, QTableWidgetItem("B"))
+                    elif w_val < 6:
+                        self.table.setItem(row, 49, QTableWidgetItem("C"))
+                    else:
+                        self.table.setItem(row, 49, QTableWidgetItem("K"))
+
+                # Stabilitas Emosi/E
+                if e_val is not None:
+                    if e_val < 4:
+                        self.table.setItem(row, 50, QTableWidgetItem("B"))
+                    elif e_val < 6:
+                        self.table.setItem(row, 50, QTableWidgetItem("C"))
+                    else:
+                        self.table.setItem(row, 50, QTableWidgetItem("K"))
+
+                # Komunikasi/B O
+                if bo_val is not None:
+                    if bo_val < 4:
+                        self.table.setItem(row, 51, QTableWidgetItem("K"))
+                    elif bo_val < 6:
+                        self.table.setItem(row, 51, QTableWidgetItem("C"))
+                    else:
+                        self.table.setItem(row, 51, QTableWidgetItem("B"))
+
+                # Keterampilan Interpersonal/S O
+                if so_val is not None:
+                    if so_val < 4:
+                        self.table.setItem(row, 52, QTableWidgetItem("K"))
+                    elif so_val < 6:
+                        self.table.setItem(row, 52, QTableWidgetItem("C"))
+                    else:
+                        self.table.setItem(row, 52, QTableWidgetItem("B"))
+
+                # Kerjasama/B X
+                if bx_val is not None:
+                    if bx_val < 4:
+                        self.table.setItem(row, 53, QTableWidgetItem("K"))
+                    elif bx_val < 6:
+                        self.table.setItem(row, 53, QTableWidgetItem("C"))
+                    else:
+                        self.table.setItem(row, 53, QTableWidgetItem("B"))
+                        
+                # Isi kolom deskripsi dari Sheet2 berdasarkan kategori (jika Sheet2 ada)
+                if hasattr(self, 'df_sheet2') and self.df_sheet2 is not None:
+                    try:
+                        # Ambil kolom D dari Sheet2
+                        if 'Unnamed: 3' in self.df_sheet2.columns:
+                            column_d = self.df_sheet2['Unnamed: 3']
+                        else:
+                            # Coba ambil berdasarkan indeks kolom
+                            column_d = self.df_sheet2.iloc[:, 3] if self.df_sheet2.shape[1] > 3 else None
+                        
+                        if column_d is not None:
+                            # Intelegensi Umum
+                            intelegensi_umum_val = self.get_cell_text(row, 42)
+                            if intelegensi_umum_val == "B" and len(column_d) > 2:
+                                self.table.setItem(row, 54, QTableWidgetItem(str(column_d.iloc[1])))
+                            elif intelegensi_umum_val == "C" and len(column_d) > 3:
+                                self.table.setItem(row, 54, QTableWidgetItem(str(column_d.iloc[2])))
+                            elif intelegensi_umum_val == "K" and len(column_d) > 4:
+                                self.table.setItem(row, 54, QTableWidgetItem(str(column_d.iloc[3])))
+                            
+                            # Daya Analisa
+                            daya_analisa_val = self.get_cell_text(row, 43)
+                            if daya_analisa_val == "B" and len(column_d) > 5:
+                                self.table.setItem(row, 55, QTableWidgetItem(str(column_d.iloc[4])))
+                            elif daya_analisa_val == "C" and len(column_d) > 6:
+                                self.table.setItem(row, 55, QTableWidgetItem(str(column_d.iloc[5])))
+                            elif daya_analisa_val == "K" and len(column_d) > 7:
+                                self.table.setItem(row, 55, QTableWidgetItem(str(column_d.iloc[6])))
+                            
+                            # Kemampuan Verbal
+                            kemampuan_verbal_val = self.get_cell_text(row, 44)
+                            if kemampuan_verbal_val == "B" and len(column_d) > 8:
+                                self.table.setItem(row, 56, QTableWidgetItem(str(column_d.iloc[7])))
+                            elif kemampuan_verbal_val == "C" and len(column_d) > 9:
+                                self.table.setItem(row, 56, QTableWidgetItem(str(column_d.iloc[8])))
+                            elif kemampuan_verbal_val == "K" and len(column_d) > 10:
+                                self.table.setItem(row, 56, QTableWidgetItem(str(column_d.iloc[9])))
+                            
+                            # Kemampuan Numerik
+                            kemampuan_numerik_val = self.get_cell_text(row, 45)
+                            if kemampuan_numerik_val == "B" and len(column_d) > 11:
+                                self.table.setItem(row, 57, QTableWidgetItem(str(column_d.iloc[10])))
+                            elif kemampuan_numerik_val == "C" and len(column_d) > 12:
+                                self.table.setItem(row, 57, QTableWidgetItem(str(column_d.iloc[11])))
+                            elif kemampuan_numerik_val == "K" and len(column_d) > 13:
+                                self.table.setItem(row, 57, QTableWidgetItem(str(column_d.iloc[12])))
+                            
+                            # Daya Ingat
+                            daya_ingat_val = self.get_cell_text(row, 46)
+                            if daya_ingat_val == "B" and len(column_d) > 14:
+                                self.table.setItem(row, 58, QTableWidgetItem(str(column_d.iloc[13])))
+                            elif daya_ingat_val == "C" and len(column_d) > 15:
+                                self.table.setItem(row, 58, QTableWidgetItem(str(column_d.iloc[14])))
+                            elif daya_ingat_val == "K" and len(column_d) > 16:
+                                self.table.setItem(row, 58, QTableWidgetItem(str(column_d.iloc[15])))
+                            
+                            # Fleksibilitas
+                            fleksibilitas_val = self.get_cell_text(row, 47)
+                            if fleksibilitas_val == "B" and len(column_d) > 17:
+                                self.table.setItem(row, 59, QTableWidgetItem(str(column_d.iloc[16])))
+                            elif fleksibilitas_val == "C" and len(column_d) > 18:
+                                self.table.setItem(row, 59, QTableWidgetItem(str(column_d.iloc[17])))
+                            elif fleksibilitas_val == "K" and len(column_d) > 19:
+                                self.table.setItem(row, 59, QTableWidgetItem(str(column_d.iloc[18])))
+                            
+                            # Sistematika Kerja
+                            sistematika_kerja_val = self.get_cell_text(row, 48)
+                            if sistematika_kerja_val == "B" and len(column_d) > 20:
+                                self.table.setItem(row, 60, QTableWidgetItem(str(column_d.iloc[19])))
+                            elif sistematika_kerja_val == "C" and len(column_d) > 21:
+                                self.table.setItem(row, 60, QTableWidgetItem(str(column_d.iloc[20])))
+                            elif sistematika_kerja_val == "K" and len(column_d) > 22:
+                                self.table.setItem(row, 60, QTableWidgetItem(str(column_d.iloc[21])))
+                            
+                            # Inisiatif
+                            inisiatif_val = self.get_cell_text(row, 49)
+                            if inisiatif_val == "B" and len(column_d) > 23:
+                                self.table.setItem(row, 61, QTableWidgetItem(str(column_d.iloc[22])))
+                            elif inisiatif_val == "C" and len(column_d) > 24:
+                                self.table.setItem(row, 61, QTableWidgetItem(str(column_d.iloc[23])))
+                            elif inisiatif_val == "K" and len(column_d) > 25:
+                                self.table.setItem(row, 61, QTableWidgetItem(str(column_d.iloc[24])))
+                            
+                            # Stabilitas Emosi
+                            stabilitas_emosi_val = self.get_cell_text(row, 50)
+                            if stabilitas_emosi_val == "B" and len(column_d) > 26:
+                                self.table.setItem(row, 62, QTableWidgetItem(str(column_d.iloc[25])))
+                            elif stabilitas_emosi_val == "C" and len(column_d) > 27:
+                                self.table.setItem(row, 62, QTableWidgetItem(str(column_d.iloc[26])))
+                            elif stabilitas_emosi_val == "K" and len(column_d) > 28:
+                                self.table.setItem(row, 62, QTableWidgetItem(str(column_d.iloc[27])))
+                            
+                            # Komunikasi
+                            komunikasi_val = self.get_cell_text(row, 51)
+                            if komunikasi_val == "B" and len(column_d) > 29:
+                                self.table.setItem(row, 63, QTableWidgetItem(str(column_d.iloc[28])))
+                            elif komunikasi_val == "C" and len(column_d) > 30:
+                                self.table.setItem(row, 63, QTableWidgetItem(str(column_d.iloc[29])))
+                            elif komunikasi_val == "K" and len(column_d) > 31:
+                                self.table.setItem(row, 63, QTableWidgetItem(str(column_d.iloc[30])))
+                            
+                            # Keterampilan Sosial / Interpersonal
+                            keterampilan_sosial_val = self.get_cell_text(row, 52)
+                            if keterampilan_sosial_val == "B" and len(column_d) > 32:
+                                self.table.setItem(row, 64, QTableWidgetItem(str(column_d.iloc[31])))
+                            elif keterampilan_sosial_val == "C" and len(column_d) > 33:
+                                self.table.setItem(row, 64, QTableWidgetItem(str(column_d.iloc[32])))
+                            elif keterampilan_sosial_val == "K" and len(column_d) > 34:
+                                self.table.setItem(row, 64, QTableWidgetItem(str(column_d.iloc[33])))
+                            
+                            # Kerjasama
+                            kerjasama_val = self.get_cell_text(row, 53)
+                            if kerjasama_val == "B" and len(column_d) > 35:
+                                self.table.setItem(row, 65, QTableWidgetItem(str(column_d.iloc[34])))
+                            elif kerjasama_val == "C" and len(column_d) > 36:
+                                self.table.setItem(row, 65, QTableWidgetItem(str(column_d.iloc[35])))
+                            elif kerjasama_val == "K" and len(column_d) > 37:
+                                self.table.setItem(row, 65, QTableWidgetItem(str(column_d.iloc[36])))
+                    except Exception as e:
+                        print(f"Error saat memproses data Sheet2: {e}")
+                        
+            except Exception as e:
+                print(f"Error saat menghitung nilai PAPIKOSTICK: {e}")
+
         except Exception as e:
             print(f"Kesalahan dalam perhitungan ulang: {e}")
 
     def get_cell_value(self, row, col):
         item = self.table.item(row, col)
-        if item and item.text().isdigit():
-            return int(item.text())
+        if item and item.text().strip():
+            try:
+                return float(item.text())
+            except ValueError:
+                return None
+        return None
+        
+    def get_cell_text(self, row, col):
+        item = self.table.item(row, col)
+        if item:
+            return item.text()
+        return ""
+        
+    def convert_to_float(self, text):
+        if text and text.strip():
+            try:
+                return float(text)
+            except ValueError:
+                return None
         return None
 
     def delete_selected_row(self):
@@ -1021,7 +1283,7 @@ class ExcelViewerApp(QWidget):
     def save_to_excel(self):
         if not self.excel_file_path:
             return
-
+        
         try:
             # Buat direktori backup jika belum ada
             import os
@@ -1256,7 +1518,7 @@ class ExcelViewerApp(QWidget):
                         
                         # Cek nilai-nilai di kolom yang digunakan dalam formula
                         col_values = {}
-                        for col_letter in ['F', 'I', 'N', 'O', 'M', 'AK', 'AL', 'AF', 'AG', 'AH', 'AM', 'AN', 'AO', 'AP', 'AQ', 'AR', 'AS', 'AT', 'AU', 'AV', 'AW', 'AX', 'AY', 'AZ', 'BA', 'BB']:
+                        for col_letter in ['F', 'I', 'N', 'O', 'M', 'AK', 'AL', 'AF', 'AH', 'AM', 'AN', 'AO', 'AP', 'AQ', 'AR', 'AS', 'AT', 'AU', 'AV', 'AW', 'AX', 'AY', 'AZ', 'BA', 'BB']:
                             col_index = openpyxl.utils.column_index_from_string(col_letter)
                             cell = sheet.cell(row=sample_row, column=col_index)
                             # Simpan nilai numeriknya jika bisa
@@ -1472,19 +1734,28 @@ class ExcelViewerApp(QWidget):
             # Tentukan kolom duplikat yang akan dihapus dari UI sebelum menyimpan
             duplicate_columns = []
             
-            # Cari kolom IQ dan Flexibilitas Pikir tanpa spasi di akhir daftar kolom
-            last_columns = list(self.columns)[-10:]  # Ambil 10 kolom terakhir
-            
-            for i, col_name in enumerate(last_columns):
-                if col_name.strip() == "IQ" and col_name != "IQ ":
-                    idx = len(self.columns) - 10 + i
-                    duplicate_columns.append(idx)
-                    print(f"Kolom duplikat IQ ditemukan di indeks {idx}: '{col_name}'")
+            # Cari kolom IQ dan Flexibilitas Pikir tanpa spasi di seluruh kolom
+            for i, col_name in enumerate(self.columns):
+                # Cari kolom duplikat IQ tanpa spasi
+                if col_name.strip() == "IQ" and col_name != "IQ " and "IQ " in self.columns:
+                    duplicate_columns.append(i)
+                    print(f"Kolom duplikat IQ ditemukan di indeks {i}: '{col_name}'")
                 
-                if col_name.strip() == "Flexibilitas Pikir" and col_name != " Flexibilitas Pikir":
-                    idx = len(self.columns) - 10 + i
-                    duplicate_columns.append(idx)
-                    print(f"Kolom duplikat Flexibilitas Pikir ditemukan di indeks {idx}: '{col_name}'")
+                # Cari kolom duplikat Flexibilitas Pikir tanpa spasi
+                if col_name.strip() == "Flexibilitas Pikir" and col_name != "Flexibilitas Pikir " and "Flexibilitas Pikir " in self.columns:
+                    duplicate_columns.append(i)
+                    print(f"Kolom duplikat Flexibilitas Pikir ditemukan di indeks {i}: '{col_name}'")
+            
+            # Jika menggunakan versi tanpa spasi (versi lama), ubah informasi di special_columns
+            if "IQ " in self.columns and iq_column is None:
+                iq_idx = self.columns.index("IQ ")
+                iq_column = iq_idx + 1  # +1 karena kolom Excel dimulai dari 1
+                print(f"Menggunakan kolom IQ dengan spasi di indeks {iq_idx} (Excel: {iq_column})")
+            
+            if "Flexibilitas Pikir " in self.columns and flex_column is None:
+                flex_idx = self.columns.index("Flexibilitas Pikir ")
+                flex_column = flex_idx + 1  # +1 karena kolom Excel dimulai dari 1
+                print(f"Menggunakan kolom Flexibilitas Pikir dengan spasi di indeks {flex_idx} (Excel: {flex_column})")
             
             # Simpan informasi tentang tinggi baris
             row_heights = {}
@@ -1603,6 +1874,72 @@ class ExcelViewerApp(QWidget):
                     # Cetak nilai dari kolom psikogram untuk debugging
                     if column_name in potensi_intelektual_columns or column_name in kepribadian_columns:
                         print(f"Kolom Psikogram: {column_name} = '{value}'")
+                
+                # Memastikan kolom Unnamed: 13, Unnamed: 14, dan KLASIFIKASI memiliki nilai yang benar
+                # WA GE (Unnamed: 13)
+                try:
+                    if "Verbal" in row_data and "Daya Abstraksi Verbal" in row_data:
+                        verbal_val = float(row_data.get("Verbal", 0))
+                        dav_val = float(row_data.get("Daya Abstraksi Verbal", 0))
+                        wa_ge = (verbal_val + dav_val) / 2
+                        row_data["Unnamed: 13"] = str(wa_ge)
+                        print(f"Menghitung WA GE: {wa_ge}")
+                except (ValueError, TypeError) as e:
+                    print(f"Error menghitung WA GE: {e}")
+
+                # RA ZR (Unnamed: 14)
+                try:
+                    if "Berpikir Praktis" in row_data and "Berpikir Teoritis" in row_data:
+                        bp_val = float(row_data.get("Berpikir Praktis", 0))
+                        bt_val = float(row_data.get("Berpikir Teoritis", 0))
+                        ra_zr = (bp_val + bt_val) / 2
+                        row_data["Unnamed: 14"] = str(ra_zr)
+                        print(f"Menghitung RA ZR: {ra_zr}")
+                except (ValueError, TypeError) as e:
+                    print(f"Error menghitung RA ZR: {e}")
+                        
+                # Pastikan nilai W ada dan benar berdasarkan gambar 1
+                try:
+                    # Dapatkan nilai-nilai untuk menentukan W
+                    g_val = float(row_data.get("G", 0))
+                    f_val = float(row_data.get("F", 0))
+                    i_val = float(row_data.get("I", 0))
+                    
+                    # Atur nilai W berdasarkan kriteria yang terlihat pada gambar 1
+                    w_val = 4.0  # Default
+                    
+                    if g_val > 6:
+                        w_val = 2.0
+                    elif f_val > 6:
+                        w_val = 3.0
+                    elif i_val > 6:
+                        w_val = 7.0
+                        
+                    row_data["W"] = str(w_val)
+                    print(f"Menghitung nilai W: {w_val}")
+                except (ValueError, TypeError) as e:
+                    print(f"Error menghitung W: {e}")
+                    row_data["W"] = "4.0"  # Nilai default jika terjadi error
+
+                # KLASIFIKASI
+                try:
+                    if "IQ " in row_data:
+                        iq = float(row_data.get("IQ ", 0))
+                        if iq < 79:
+                            iq_klasifikasi = "Rendah"
+                        elif 79 <= iq < 90:
+                            iq_klasifikasi = "Dibawah Rata-Rata"
+                        elif 90 <= iq < 110:
+                            iq_klasifikasi = "Rata-Rata"
+                        elif 110 <= iq < 120:
+                            iq_klasifikasi = "Diatas Rata-Rata"
+                        else:
+                            iq_klasifikasi = "Superior"
+                        
+                        row_data["KLASIFIKASI"] = iq_klasifikasi
+                        print(f"Menghitung KLASIFIKASI: {iq_klasifikasi}")
+                except (ValueError, TypeError) as e:
+                    print(f"Error menghitung KLASIFIKASI: {e}")
                 
                 ui_data.append(row_data)
             
