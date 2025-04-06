@@ -357,12 +357,29 @@ class ExcelViewerApp(QWidget):
                 if col_idx < len(self.columns):
                     field.setText(row_data.get(self.columns[col_idx], ""))
 
-            # Populate PAPIKOSTICK inputs
-            papiko_start_idx = ist_start_idx + len(self.ist_inputs) + 3  # +3 for WA GE, RA ZR, IQ KLASIFIKASI
-            for i, field in enumerate(self.papikostick_inputs):
-                col_idx = papiko_start_idx + i
-                if col_idx < len(self.columns):
-                    field.setText(row_data.get(self.columns[col_idx], ""))
+            # Populate PAPIKOSTICK inputs menggunakan mapping yang sama seperti saat menambahkan data
+            papiko_columns = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", "C", "D", "R", "Z", "E", "K", "F", "W"]
+            
+            # Debug untuk mapping PAPIKOSTICK
+            print("DEBUG - Populate PAPIKOSTICK fields from selection:")
+            
+            # Telusuri setiap input field PAPIKOSTICK
+            for field_idx, field_label in enumerate(papiko_columns):
+                # Cari nilai dari kolom yang sesuai di tabel
+                if field_label in row_data:
+                    value = row_data[field_label]
+                    
+                    # Log debugging
+                    print(f"DEBUG - Populate field PAPIKOSTICK {field_idx} ({field_label}) dengan nilai: '{value}'")
+                    
+                    # Skip kolom C (Coding) karena akan dihitung otomatis
+                    if field_label == "C (Coding)":
+                        print(f"DEBUG - Melewati field C (Coding) karena dihitung otomatis")
+                        continue
+                    
+                    # Set nilai ke field input yang sesuai
+                    if field_idx < len(self.papikostick_inputs):
+                        self.papikostick_inputs[field_idx].setText(value)
 
     def load_excel(self):
         
@@ -499,34 +516,12 @@ class ExcelViewerApp(QWidget):
                         # Jika ada nilai W di file Excel, gunakan nilai tersebut
                         pass
                     else:
-                        # Jika tidak ada, buat kolom dengan nilai default 4.0
-                        new_df["W"] = 4.0
-                        print("Menambahkan kolom W dengan nilai default")
+                        # Jika tidak ada, buat kolom dengan nilai kosong
+                        new_df["W"] = ""
+                        print("Menambahkan kolom W dengan nilai kosong")
                         
-                        # Hitung nilai W untuk setiap baris berdasarkan nilai G, F, dan I
-                        if all(col in new_df.columns for col in ["G", "F", "I"]):
-                            print("Menghitung ulang nilai W berdasarkan G, F, dan I")
-                            for idx in new_df.index:
-                                try:
-                                    g_val = pd.to_numeric(new_df.loc[idx, "G"], errors='coerce')
-                                    f_val = pd.to_numeric(new_df.loc[idx, "F"], errors='coerce') 
-                                    i_val = pd.to_numeric(new_df.loc[idx, "I"], errors='coerce')
-                                    
-                                    # Nilai default
-                                    w_val = 4.0
-                                    
-                                    # Logika penentuan nilai W
-                                    if g_val > 6:
-                                        w_val = 2.0
-                                    elif f_val > 6:
-                                        w_val = 3.0
-                                    elif i_val > 6:
-                                        w_val = 7.0
-                                        
-                                    new_df.loc[idx, "W"] = w_val
-                                except Exception as e:
-                                    print(f"Error menghitung W untuk baris {idx}: {e}")
-                                    new_df.loc[idx, "W"] = 4.0  # Default jika ada error
+                        # Tidak perlu lagi cek G, F, dan I karena W harus diisi langsung oleh pengguna
+                        # Dan tidak ada nilai default yang diberikan
 
                     # Hitung KLASIFIKASI berdasarkan IQ
                     if "IQ " in new_df.columns:
@@ -638,6 +633,9 @@ class ExcelViewerApp(QWidget):
                 for j, (col_name, val) in enumerate(row.items()):
                     item = QTableWidgetItem(str(val))
                     self.table.setItem(i, j, item)
+                    # Debug untuk kolom W
+                    if col_name == "W":
+                        print(f"DEBUG - Show_table: Mengatur nilai W='{val}' ke tabel di baris {i}, kolom {j}")
             
             # Resize columns to fit content
             self.table.resizeColumnsToContents()
@@ -804,6 +802,16 @@ class ExcelViewerApp(QWidget):
         # Debug information
         print(f"Number of values: {len(values)}")
         print(f"Number of columns: {len(self.columns)}")
+        
+        # Debug untuk melihat struktur kolom secara detail
+        for i, col in enumerate(self.columns):
+            print(f"DEBUG - Column {i}: {col}")
+            
+        # Debug untuk papikostick fields
+        print("DEBUG - PAPIKOSTICK fields:")
+        for i, field in enumerate(self.papikostick_inputs):
+            print(f"DEBUG - Field {i}: {field.text()}")
+        
         print(f"Columns: {self.columns}")  # Print column names for debugging
         
         # Check if any field is empty
@@ -844,30 +852,74 @@ class ExcelViewerApp(QWidget):
             col_idx = ist_start_idx + i
             if col_idx < len(self.columns):
                 try:
-                    row_data[self.columns[col_idx]] = float(field.text()) if field.text().strip() else 0
+                    input_text = field.text()
+                    # Jika input kosong, biarkan kosong (string kosong, bukan 0)
+                    if not input_text.strip():
+                        row_data[self.columns[col_idx]] = ""
+                    else:
+                        row_data[self.columns[col_idx]] = float(input_text)
                 except ValueError:
                     print(f"Invalid numeric value: {field.text()}")
                     return
         
+        # Cari indeks kolom W dalam tabel
+        w_column_index = -1
+        for i, col_name in enumerate(self.columns):
+            if col_name == "W":
+                w_column_index = i
+                print(f"DEBUG - Kolom W ditemukan di indeks {w_column_index}")
+                break
+        
         # Add PAPIKOSTICK values
         papiko_start_idx = ist_start_idx + len(self.ist_inputs) + 3  # +3 for WA GE, RA ZR, IQ KLASIFIKASI
-        data_idx = 0  # Indeks input field (mengabaikan "C (Coding)")
-
-        for col_idx in range(papiko_start_idx, papiko_start_idx + len(self.papikostick_inputs) + 1):
-            if col_idx >= len(self.columns):
-                break  # Pastikan tidak melebihi jumlah kolom
-
-            col_name = self.columns[col_idx]
-
-            # Pastikan tidak melebihi jumlah input field
-            if data_idx < len(self.papikostick_inputs):
-                try:
-                    row_data[col_name] = float(self.papikostick_inputs[data_idx].text()) if self.papikostick_inputs[data_idx].text().strip() else 0
-                except ValueError:
-                    print(f"Invalid numeric value: {self.papikostick_inputs[data_idx].text()}")
-                    return
-
-            data_idx += 1  # Hanya naikkan indeks input field jika bukan "C (Coding)"
+        
+        # Debug untuk melihat struktur kolom
+        print("DEBUG - papikostick_fields jumlah:", len(self.papikostick_inputs))
+        print("DEBUG - papiko_start_idx:", papiko_start_idx)
+        print("DEBUG - columns length:", len(self.columns))
+        
+        # Buat mapping eksplisit antara field PAPIKOSTICK dan kolom di tabel
+        papiko_columns = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", "C", "D", "R", "Z", "E", "K", "F", "W"]
+        
+        # Telusuri setiap input field PAPIKOSTICK
+        for field_idx, field_label in enumerate(papiko_columns):
+            # Cari kolom yang sesuai di tabel
+            col_idx = -1
+            for i, col_name in enumerate(self.columns):
+                if col_name == field_label:
+                    col_idx = i
+                    break
+                    
+            if col_idx >= 0 and field_idx < len(self.papikostick_inputs):
+                # Jika kolom ditemukan di tabel, isi nilainya dari input
+                input_text = self.papikostick_inputs[field_idx].text()
+                
+                # Log debugging
+                print(f"DEBUG - Mapping field PAPIKOSTICK {field_idx} ({field_label}) ke kolom {col_idx}")
+                
+                # Skip kolom C (Coding) karena akan dihitung otomatis
+                if field_label == "C (Coding)" or col_idx == 29:
+                    print(f"DEBUG - Melewati kolom C (Coding) di indeks {col_idx}")
+                    continue
+                
+                # Jika input kosong, biarkan kosong (string kosong, bukan 0)
+                if not input_text.strip():
+                    row_data[self.columns[col_idx]] = ""
+                else:
+                    # Konversi ke integer (bukan float), jika bisa
+                    try:
+                        value = float(input_text)
+                        if value.is_integer():
+                            row_data[self.columns[col_idx]] = int(value)
+                        else:
+                            row_data[self.columns[col_idx]] = value
+                    except ValueError:
+                        # Jika tidak bisa dikonversi, gunakan nilai asli
+                        row_data[self.columns[col_idx]] = input_text
+                    
+                # Log khusus untuk kolom W
+                if field_label == "W":
+                    print(f"DEBUG - PENTING! Nilai W diproses: {input_text} -> {row_data[self.columns[col_idx]]}")
         
         # Determine action based on mode
         if mode == "add":
@@ -876,7 +928,25 @@ class ExcelViewerApp(QWidget):
             self.table.insertRow(row)
             for col, column_name in enumerate(self.columns):
                 value = row_data.get(column_name, "")
-                self.table.setItem(row, col, QTableWidgetItem(str(value)))
+                # Buat QTableWidgetItem dengan nilai
+                table_item = QTableWidgetItem()
+                
+                # Jika nilai numerik (integer atau float), simpan sebagai numerik
+                if isinstance(value, (int, float)):
+                    if isinstance(value, float) and value.is_integer():
+                        # Jika float tanpa desimal, konversi ke integer
+                        table_item.setData(Qt.DisplayRole, int(value))
+                    else:
+                        table_item.setData(Qt.DisplayRole, value)
+                else:
+                    # Jika string atau lainnya, simpan sebagai string
+                    table_item.setText(str(value))
+                
+                self.table.setItem(row, col, table_item)
+                
+                # Log untuk kolom W
+                if column_name == "W":
+                    print(f"DEBUG - Setting W value in table to: '{value}'")
                 
             # Recalculate values for the new row
             self.recalculate_values(row)
@@ -888,6 +958,9 @@ class ExcelViewerApp(QWidget):
                 for col, column_name in enumerate(self.columns):
                     value = row_data.get(column_name, "")
                     self.table.setItem(selected_row, col, QTableWidgetItem(str(value)))
+                    # Log untuk kolom W
+                    if column_name == "W":
+                        print(f"DEBUG - Updating W value in table to: '{value}'")
                 
                 # Recalculate values for the edited row
                 self.recalculate_values(selected_row)
@@ -903,6 +976,10 @@ class ExcelViewerApp(QWidget):
 
     def recalculate_values(self, row):
         try:
+            # Simpan nilai W sebelum perhitungan untuk memastikan tidak berubah
+            original_w_value = self.get_cell_text(row, 36)
+            print(f"DEBUG - Nilai W SEBELUM perhitungan: '{original_w_value}'")
+            
             # Dapatkan nilai dasar dari kolom-kolom
             iq = self.get_cell_value(row, 5)
             konkrit_praktis = self.get_cell_value(row, 6)
@@ -959,47 +1036,93 @@ class ExcelViewerApp(QWidget):
                 k_val = self.convert_to_float(self.get_cell_text(row, 34))
                 f_val = self.convert_to_float(self.get_cell_text(row, 35))
                 
-                # Set nilai pada kolom W (36) berdasarkan nilai-nilai pada gambar 1 (2.0, 3.0, 4.0, atau 7.0)
-                # Atur nilai W berdasarkan kriteria yang ditampilkan pada gambar
-                # Nilai bobot default - kita menggunakan 4.0 sebagai nilai default
-                w_val = 4.0
-                
-                # Berdasarkan gambar, kita perlu mengatur nilai W dengan nilai yang sesuai
-                if g_val is not None and g_val > 6:  # Contoh: jika G tinggi, W lebih rendah
-                    w_val = 2.0
-                elif f_val is not None and f_val > 6:  # Contoh: jika F tinggi, W sedang
-                    w_val = 3.0
-                elif i_val is not None and i_val > 6:  # Contoh: jika I tinggi, W lebih tinggi
-                    w_val = 7.0
-                    
-                # Set nilai W ke dalam tabel
-                self.table.setItem(row, 36, QTableWidgetItem(str(w_val)))
+                # Untuk nilai W (36), JANGAN mengubah atau mengatur apa pun
+                # Hanya baca nilainya untuk perhitungan lain
+                w_val = self.convert_to_float(self.get_cell_text(row, 36))
+                print(f"DEBUG - W value dari tabel: {self.get_cell_text(row, 36)}, converted: {w_val}")
 
                 # Hitung C (Coding) berdasarkan C
-                if 1 <= c_val <= 9:
+                if c_val is not None and 1 <= c_val <= 9:
                     c_coding = 10 - c_val
-                    self.table.setItem(row, 29, QTableWidgetItem(str(c_coding)))
+                    # Jika c_coding adalah integer, gunakan QTableWidgetItem dengan setData
+                    c_coding_item = QTableWidgetItem()
+                    if isinstance(c_coding, int) or (isinstance(c_coding, float) and c_coding.is_integer()):
+                        c_coding_item.setData(Qt.DisplayRole, int(c_coding))
+                    else:
+                        c_coding_item.setData(Qt.DisplayRole, c_coding)
+                    self.table.setItem(row, 29, c_coding_item)
+                    print(f"DEBUG - Menghitung C (Coding): {c_val} -> {c_coding}")
+                else:
+                    print(f"DEBUG - Tidak dapat menghitung C (Coding): nilai C={c_val} tidak valid atau di luar rentang 1-9")
+                    # Jika tidak dapat menghitung, pastikan kolom ini kosong
+                    self.table.setItem(row, 29, QTableWidgetItem(""))
+
+                # Kembalikan nilai W asli ke tabel untuk memastikan tidak berubah
+                # Jika nilai W numerik dan bulat, gunakan integer
+                w_item = QTableWidgetItem()
+                try:
+                    w_val = float(original_w_value)
+                    if w_val.is_integer():
+                        w_item.setData(Qt.DisplayRole, int(w_val))
+                    else:
+                        w_item.setData(Qt.DisplayRole, w_val)
+                except ValueError:
+                    # Jika bukan numerik, gunakan string
+                    w_item.setText(original_w_value)
+                
+                self.table.setItem(row, 36, w_item)
+                print(f"DEBUG - Mengembalikan W ke nilai asli: '{original_w_value}'")
 
                 # Hitung kolom kombinasi
                 if c_val is not None and d_val is not None:
                     cd_val = (c_val + d_val) / 2
-                    self.table.setItem(row, 37, QTableWidgetItem(str(cd_val)))
+                    cd_item = QTableWidgetItem()
+                    # Jika hasil adalah integer, simpan sebagai integer
+                    if cd_val.is_integer():
+                        cd_item.setData(Qt.DisplayRole, int(cd_val))
+                    else:
+                        cd_item.setData(Qt.DisplayRole, cd_val)
+                    self.table.setItem(row, 37, cd_item)
 
                 if t_val is not None and v_val is not None:
                     tv_val = (t_val + v_val) / 2
-                    self.table.setItem(row, 38, QTableWidgetItem(str(tv_val)))
+                    tv_item = QTableWidgetItem()
+                    # Jika hasil adalah integer, simpan sebagai integer
+                    if tv_val.is_integer():
+                        tv_item.setData(Qt.DisplayRole, int(tv_val))
+                    else:
+                        tv_item.setData(Qt.DisplayRole, tv_val)
+                    self.table.setItem(row, 38, tv_item)
 
                 if b_val is not None and o_val is not None:
                     bo_val = (b_val + o_val) / 2
-                    self.table.setItem(row, 39, QTableWidgetItem(str(bo_val)))
+                    bo_item = QTableWidgetItem()
+                    # Jika hasil adalah integer, simpan sebagai integer
+                    if bo_val.is_integer():
+                        bo_item.setData(Qt.DisplayRole, int(bo_val))
+                    else:
+                        bo_item.setData(Qt.DisplayRole, bo_val)
+                    self.table.setItem(row, 39, bo_item)
 
                 if s_val is not None and o_val is not None:
                     so_val = (s_val + o_val) / 2
-                    self.table.setItem(row, 40, QTableWidgetItem(str(so_val)))
+                    so_item = QTableWidgetItem()
+                    # Jika hasil adalah integer, simpan sebagai integer
+                    if so_val.is_integer():
+                        so_item.setData(Qt.DisplayRole, int(so_val))
+                    else:
+                        so_item.setData(Qt.DisplayRole, so_val)
+                    self.table.setItem(row, 40, so_item)
 
                 if b_val is not None and x_val is not None:
                     bx_val = (b_val + x_val) / 2
-                    self.table.setItem(row, 41, QTableWidgetItem(str(bx_val)))
+                    bx_item = QTableWidgetItem()
+                    # Jika hasil adalah integer, simpan sebagai integer
+                    if bx_val.is_integer():
+                        bx_item.setData(Qt.DisplayRole, int(bx_val))
+                    else:
+                        bx_item.setData(Qt.DisplayRole, bx_val)
+                    self.table.setItem(row, 41, bx_item)
                 
                 # Hitung kategori untuk kolom berdasarkan IQ
                 if iq is not None:
@@ -1072,6 +1195,10 @@ class ExcelViewerApp(QWidget):
                         self.table.setItem(row, 49, QTableWidgetItem("C"))
                     else:
                         self.table.setItem(row, 49, QTableWidgetItem("K"))
+                else:
+                    # Jika w_val None (kosong), biarkan kolom Inisiatif/W.1 juga kosong
+                    # atau atur ke string kosong untuk menunjukkan tidak ada nilai
+                    self.table.setItem(row, 49, QTableWidgetItem(""))
 
                 # Stabilitas Emosi/E
                 if e_val is not None:
@@ -1233,6 +1360,13 @@ class ExcelViewerApp(QWidget):
             except Exception as e:
                 print(f"Error saat menghitung nilai PAPIKOSTICK: {e}")
 
+            # Periksa apakah nilai W telah berubah, jika ya kembalikan ke nilai asli
+            current_w_value = self.get_cell_text(row, 36)
+            if current_w_value != original_w_value:
+                print(f"PERINGATAN - Nilai W berubah dari '{original_w_value}' menjadi '{current_w_value}'")
+                print(f"Mengembalikan nilai W ke nilai asli: '{original_w_value}'")
+                self.table.setItem(row, 36, QTableWidgetItem(original_w_value))
+
         except Exception as e:
             print(f"Kesalahan dalam perhitungan ulang: {e}")
 
@@ -1254,7 +1388,11 @@ class ExcelViewerApp(QWidget):
     def convert_to_float(self, text):
         if text and text.strip():
             try:
-                return float(text)
+                value = float(text)
+                # Jika nilai bulat, konversi ke integer
+                if value.is_integer():
+                    return int(value)
+                return value
             except ValueError:
                 return None
         return None
@@ -1900,26 +2038,26 @@ class ExcelViewerApp(QWidget):
                         
                 # Pastikan nilai W ada dan benar berdasarkan gambar 1
                 try:
-                    # Dapatkan nilai-nilai untuk menentukan W
-                    g_val = float(row_data.get("G", 0))
-                    f_val = float(row_data.get("F", 0))
-                    i_val = float(row_data.get("I", 0))
+                    # Tambahkan debug untuk melihat semua kunci di row_data
+                    print("DEBUG - Kunci di row_data:", list(row_data.keys()))
                     
-                    # Atur nilai W berdasarkan kriteria yang terlihat pada gambar 1
-                    w_val = 4.0  # Default
-                    
-                    if g_val > 6:
-                        w_val = 2.0
-                    elif f_val > 6:
-                        w_val = 3.0
-                    elif i_val > 6:
-                        w_val = 7.0
+                    # Gunakan nilai W yang sudah dimasukkan pengguna, tidak ada nilai default
+                    if "W" in row_data:
+                        print(f"DEBUG - Nilai W di row_data: '{row_data['W']}'")
                         
-                    row_data["W"] = str(w_val)
-                    print(f"Menghitung nilai W: {w_val}")
-                except (ValueError, TypeError) as e:
-                    print(f"Error menghitung W: {e}")
-                    row_data["W"] = "4.0"  # Nilai default jika terjadi error
+                        if row_data["W"] and row_data["W"].strip():
+                            # Gunakan nilai asli tanpa konversi ke float
+                            print(f"Menggunakan nilai W dari input: {row_data['W']}")
+                        else:
+                            # Jika tidak ada input, biarkan kosong sebagai string
+                            print(f"Nilai W kosong, membiarkannya tetap kosong")
+                    else:
+                        # Jika tidak ada kunci W di row_data, tandai sebagai kosong
+                        row_data["W"] = ""
+                        print(f"Kunci W tidak ditemukan di row_data, mengatur ke kosong")
+                except Exception as e:
+                    print(f"Error mengambil nilai W: {e}")
+                    # Tidak perlu mengatur ke kosong jika sudah ada nilai
 
                 # KLASIFIKASI
                 try:
@@ -2002,7 +2140,24 @@ class ExcelViewerApp(QWidget):
                     col_idx = None
                     
                     # Handling khusus untuk kolom-kolom tertentu berdasarkan nama
-                    if col_name in special_columns:
+                    if col_name == "W":
+                        # Cari secara langsung kolom W berdasarkan nama kolom
+                        for possible_idx in range(1, sheet.max_column + 1):
+                            cell_val = sheet.cell(row=header_row, column=possible_idx).value
+                            if cell_val == "W":
+                                col_idx = possible_idx
+                                print(f"DEBUG - Menemukan kolom W di Excel pada indeks {col_idx}")
+                                break
+                                
+                        # Jika ditemukan, simpan nilai langsung sebagai string
+                        if col_idx:
+                            print(f"DEBUG - Menyimpan nilai W='{value}' ke Excel di kolom {col_idx}")
+                            target_cell = sheet.cell(row=target_row, column=col_idx)
+                            # Gunakan nilai string langsung, jangan konversi
+                            target_cell.value = value
+                            # Lanjutkan ke kolom berikutnya
+                            continue
+                    elif col_name in special_columns:
                         col_idx = special_columns[col_name]
                         print(f"Menggunakan pemetaan khusus untuk kolom '{col_name}' -> {col_idx}")
                     # Gunakan kolom yang benar untuk IQ dan Flexibilitas Pikir
@@ -2236,12 +2391,57 @@ class ExcelViewerApp(QWidget):
                             # Konversi nilai ke integer jika memungkinkan
                             elif value and value.replace('.', '', 1).replace('-', '', 1).isdigit():
                                 try:
-                                    # Coba konversi ke integer jika nilai merupakan angka bulat
-                                    if float(value).is_integer():
-                                        target_cell.value = int(float(value))
+                                    # Cek jika ini kolom PAPIKOSTICK (kolom 16-36)
+                                    if col_idx >= 16 and col_idx <= 36:
+                                        # Untuk kolom PAPIKOSTICK, simpan nilai seperti apa adanya sebagai string
+                                        print(f"DEBUG - Menyimpan nilai PAPIKOSTICK '{value}' di kolom {col_idx} sebagai integer jika memungkinkan")
+                                        try:
+                                            # Coba konversi ke integer jika nilai bulat
+                                            num_value = float(value)
+                                            if num_value.is_integer():
+                                                target_cell.value = int(num_value)
+                                            else:
+                                                target_cell.value = num_value
+                                        except (ValueError, TypeError):
+                                            # Jika tidak bisa dikonversi, simpan sebagai string
+                                            target_cell.value = value
+                                    # Untuk kolom W, simpan sebagai string
+                                    elif col_name == "W":
+                                        print(f"DEBUG - Menyimpan nilai W '{value}' di kolom {col_idx} sebagai integer jika memungkinkan")
+                                        try:
+                                            # Coba konversi ke integer jika nilai bulat
+                                            num_value = float(value)
+                                            if num_value.is_integer():
+                                                target_cell.value = int(num_value)
+                                            else:
+                                                target_cell.value = num_value
+                                        except (ValueError, TypeError):
+                                            # Jika tidak bisa dikonversi, simpan sebagai string
+                                            target_cell.value = value
+                                    # Untuk kolom C (Coding), simpan sebagai string
+                                    elif col_name == "C (Coding)":
+                                        print(f"DEBUG - Menyimpan nilai C (Coding) '{value}' di kolom {col_idx} sebagai integer jika memungkinkan")
+                                        try:
+                                            # Coba konversi ke integer jika nilai bulat
+                                            num_value = float(value)
+                                            if num_value.is_integer():
+                                                target_cell.value = int(num_value)
+                                            else:
+                                                target_cell.value = num_value
+                                        except (ValueError, TypeError):
+                                            # Jika tidak bisa dikonversi, simpan sebagai string
+                                            target_cell.value = value
+                                    # Untuk kolom lain, konversi ke angka
                                     else:
-                                        # Jika ada desimal, tetap gunakan float
-                                        target_cell.value = float(value)
+                                        # Coba konversi ke integer jika nilai merupakan angka bulat
+                                        try:
+                                            if float(value).is_integer():
+                                                target_cell.value = int(float(value))
+                                            else:
+                                                # Jika ada desimal, tetap gunakan float
+                                                target_cell.value = float(value)
+                                        except ValueError:
+                                            target_cell.value = value
                                 except ValueError:
                                     target_cell.value = value
                             else:
