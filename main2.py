@@ -339,7 +339,7 @@ class ExcelViewerApp(QWidget):
                         break
             else:
                 # Search in selected column
-                col_idx = self.columns.index(selected_column)
+                col_idx = self.table.horizontalHeader().logicalIndex(self.columns.index(selected_column))
                 item = self.table.item(row, col_idx)
                 if item and search_text in item.text().lower():
                     row_visible = True
@@ -2211,23 +2211,30 @@ class ExcelViewerApp(QWidget):
             """
 
             # Add personal info
-            # Dapatkan tanggal saat ini
-            tanggal_tes = datetime.now().strftime("%d %B %Y")
+            # Get test date from Excel
+            tgl_test_col = self.get_column_index("Tgl Test")
+            tgl_test_val = self.table.item(selected_row, tgl_test_col)
+            tanggal_tes = tgl_test_val.text() if tgl_test_val else datetime.now().strftime("%d %B %Y")
 
-            # Konversi dan format tanggal lahir
+            # Convert and format birth date from Excel
             try:
-                # Coba parse dengan format DD/MM/YYYY
+                # Try parse with DD/MM/YYYY format
                 tgl_lahir_obj = datetime.strptime(tgl_lahir, "%d/%m/%Y")
             except ValueError:
                 try:
-                    # Jika gagal, coba parse dengan format YYYY-MM-DD
+                    # If failed, try parse with YYYY-MM-DD format
                     tgl_lahir_obj = datetime.strptime(tgl_lahir, "%Y-%m-%d")
                 except ValueError:
-                    # Jika masih gagal, gunakan tanggal hari ini sebagai fallback
-                    print(f"Error: Format tanggal '{tgl_lahir}' tidak dikenali. Menggunakan tanggal saat ini.")
+                    # If still failed, use current date as fallback
+                    print(f"Error: Date format '{tgl_lahir}' not recognized. Using current date.")
                     tgl_lahir_obj = datetime.now()
                     
             tgl_lahir_formatted = tgl_lahir_obj.strftime("%d %B %Y")
+
+            # Get company name from Excel
+            nama_pt_col = self.get_column_index("Nama PT")
+            nama_pt_val = self.table.item(selected_row, nama_pt_col)
+            nama_perusahaan = nama_pt_val.text() if nama_pt_val else "PT. BAM"
 
             html_content += f"""
             <div style="width: 100%; margin: 0 auto;">
@@ -2244,28 +2251,29 @@ class ExcelViewerApp(QWidget):
                         <div style="color: #1f4e79;">No. {row_data.get('No', '')} / {row_data.get('No Tes', '')}</div>
                     </div>
                 </div>
-                <table class="info-table" style="margin-bottom: 20px; border-spacing: 0; font-size: 12px;">
+
+                <table class="info-table" style="margin-bottom: 20px; border-spacing: 0; font-size: 12px; width: 100%;">
                     <tr>
-                        <td width="15%" style="padding: 4px 0; color: #c45911; font-weight: bold;">NAMA</td>
-                        <td width="35%" style="padding: 4px 0; color: #c45911; font-weight: bold;">: {nama}</td>
-                        <td width="15%" style="padding: 4px 0; color: #c45911; font-weight: bold;">PERUSAHAAN</td>
-                        <td width="35%" style="padding: 4px 0; color: #c45911; font-weight: bold;">: PT. BAM</td>
+                        <td width="15%" style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">NAMA</td>
+                        <td width="35%" style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">: {nama}</td>
+                        <td width="15%" style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">PERUSAHAAN</td>
+                        <td width="35%" style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">: {nama_perusahaan}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">TANGGAL LAHIR</td>
-                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">: {tgl_lahir_formatted}</td>
-                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">TANGGAL TES</td>
-                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">: {tanggal_tes}</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">TANGGAL LAHIR</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">: {tgl_lahir_formatted}</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">TANGGAL TES</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">: {tanggal_tes}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">PEMERIKSA</td>
-                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">: Chitra Ananda Mulia, M.Psi., Psikolog</td>
-                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">LEMBAGA</td>
-                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">: BEHAVYOURS</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">PEMERIKSA</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">: Chitra Ananda Mulia, M.Psi., Psikolog</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">LEMBAGA</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">: BEHAVYOURS</td>
                     </tr>
                     <tr>
-                        <td style="padding: 4px 0; color: #c45911; font-weight: bold;">ALAMAT LEMBAGA</td>
-                        <td colspan="3" style="padding: 4px 0; color: #c45911; font-weight: bold;">: Jl. Patal Senayan No.01</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">ALAMAT LEMBAGA</td>
+                        <td colspan="3" style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">: Jl. Patal Senayan No.01</td>
                     </tr>
                 </table>
             </div>
@@ -2321,7 +2329,7 @@ class ExcelViewerApp(QWidget):
                             </tr>
                         </table>   
                     </div>     
-                        """
+            """
 
             # Add IQ data
             iq_val = self.table.item(selected_row, self.get_column_index("IQ "))
@@ -2502,17 +2510,258 @@ class ExcelViewerApp(QWidget):
                     </table>
                 """
 
+            # Get the gender value from the selected row
+            jk_col = self.get_column_index("JK")
+            jk_val = self.table.item(selected_row, jk_col)
+            gender_prefix = "Sdr."
+
+            if jk_val:
+                gender_text = jk_val.text().strip().upper()
+                if gender_text == "P":
+                    gender_prefix = "Sdri."
+
+            # Ensure the Excel file path is set
+            excel_file_path = self.excel_file_path
+
+            # Load the workbook and select the appropriate sheet
+            wb = openpyxl.load_workbook(excel_file_path, data_only=True)
+            sheet3 = wb.worksheets[2]  # Ensure this is the correct sheet index
+
+            def get_development_text(aspect_value, r_text, k_text):
+                # Return appropriate text based on R or K value
+                if aspect_value == "R":
+                    return r_text
+                elif aspect_value == "K":
+                    return k_text
+                return ""
+
+            # Map each specified column to its corresponding development text
+            column_mappings = {
+                "Logika Berpikir 1": ("F3", "F4"),
+                "Daya Analisa 3": ("F5", "F6"),
+                "Kemampuan Numerik 5": ("F7", "F8"),
+                "Kemampuan Verbal 2 dam 4": ("F9", "F10"),
+                "Orientasi Hasil/ N G": ("F11", "F12"),
+                "Fleksibilitas/ T V": ("F13", "F14"),
+                "Sistematika Kerja/ C D R": ("F15", "F16"),
+                "Motivasi Berprestasi/ A": ("F17", "F18"),
+                "Kerjasama/ P I": ("F19", "F20"),
+                "Keterampilan Interpersonal/ B S": ("F21", "F22"),
+                "Stabilitas Emosi/ E PHQ": ("F23", "F24"),
+                "Pegembangan Diri/ W": ("F25", "F26"),
+                "Mengelola Perubahan/ Z K": ("F27", "F28")
+            }
+
+            # Get development text only for columns with R or K value
+            development_texts = []
+            for column, (r_cell, k_cell) in column_mappings.items():
+                column_value = row_data.get(column, "")
+                if column_value in ["R", "K"]:
+                    text = get_development_text(column_value, sheet3[r_cell].value or "", sheet3[k_cell].value or "")
+                    if text:
+                        development_texts.append(text)
+
+            # Build final development text
+            development_text = f"{gender_prefix} {nama} "
+            
+            if development_texts:
+                # Join only the texts from columns that had R or K values
+                development_text += " ".join(development_texts)
+            else:
+                # If no R or K values found, use a default message
+                development_text += "masih membutuhkan pengembangan dalam mengidentifikasi pola logis, menarik kesimpulan, dan memperdalami penguasaan hubungan sebab akibat menjadi lebih baik dalam konsep matematis dan butuh memperdalam penggunaan bahasa lebih lanjut. Kemudian, butuh kefokusan agar lebih mudah dalam beradaptasi, dan butuh kontribusi lebih, dan koordinasi dengan kelompok agar mencapai tujuan bersama. Serta mudah diri dengan pada pada hal-hal baru."
+
+            # Get the PHQ value from the selected row
+            phq_col = self.get_column_index("PHQ")
+            phq_val = self.table.item(selected_row, phq_col)
+
+            screening_categories = {
+                "Tahapan Normal": "Individu menunjukkan adaptasi gejala gangguan mental yang mengganggu fungsi sehari-hari",
+                "Cenderung Stress dalam Tekanan": "Dalam situasi yg menimbulkan tekanan dapat berdampak pada kondisi individu & respon emosional yg ditampilkan",
+                "Gejala Gangguan": "Individu menunjukkan gejala-gejala gangguan yang dapat mengganggu fungsi sehari-hari"
+            }
+            selected_category = ""
+            if phq_val:
+                try:
+                    phq_value_numeric = int(phq_val.text().strip())
+                    if 0 <= phq_value_numeric <= 9:
+                        selected_category = "Tahapan Normal"
+                    elif 10 <= phq_value_numeric <= 19:
+                        selected_category = "Cenderung Stress dalam Tekanan"
+                    elif phq_value_numeric >= 20:
+                        selected_category = "Gejala Gangguan"
+                except ValueError:
+                    selected_category = "Unknown"
+
+            # Define a function to generate conclusion text based on column mappings
+            def generate_conclusion_text(aspect, category, sheet):
+                # Define the cell mappings for each aspect and category
+                cell_mappings = {
+                    "Logika Berpikir 1": {
+                        "R": "F30",
+                        "K": "F31", 
+                        "C": "F32",
+                        "B": "F33",
+                        "T": "F34"
+                    },
+                    "Daya Analisa 3": {
+                        "R": "F35",
+                        "K": "F36",
+                        "C": "F37", 
+                        "B": "F38",
+                        "T": "F39"
+                    },
+                    "Kemampuan Numerik 5": {
+                        "R": "F40",
+                        "K": "F41",
+                        "C": "F42",
+                        "B": "F43", 
+                        "T": "F44"
+                    },
+                    "Kemampuan Verbal 2 dam 4": {
+                        "R": "F45",
+                        "K": "F46",
+                        "C": "F47",
+                        "B": "F48",
+                        "T": "F49"
+                    },
+                    "Orientasi Hasil/ N G": {
+                        "R": "F50",
+                        "K": "F51",
+                        "C": "F52",
+                        "B": "F53",
+                        "T": "F54"
+                    },
+                    "Fleksibilitas/ T V": {
+                        "R": "F55",
+                        "K": "F56",
+                        "C": "F57",
+                        "B": "F58",
+                        "T": "F59"
+                    },
+                    "Sistematika Kerja/ C D R": {
+                        "R": "F60",
+                        "K": "F61",
+                        "C": "F62",
+                        "B": "F63",
+                        "T": "F64"
+                    },
+                    "Motivasi Berprestasi/ A": {
+                        "R": "F65",
+                        "K": "F66",
+                        "C": "F67",
+                        "B": "F68",
+                        "T": "F69"
+                    },
+                    "Kerjasama/ P I": {
+                        "R": "F70",
+                        "K": "F71",
+                        "C": "F72",
+                        "B": "F73",
+                        "T": "F74"
+                    },
+                    "Keterampilan Interpersonal/ B S": {
+                        "R": "F75",
+                        "K": "F76",
+                        "C": "F77",
+                        "B": "F78",
+                        "T": "F79"
+                    },
+                    "Stabilitas Emosi/ E PHQ": {
+                        "R": "F80",
+                        "K": "F81",
+                        "C": "F82",
+                        "B": "F83",
+                        "T": "F84"
+                    },
+                    "Pegembangan Diri/ W": {
+                        "R": "F85",
+                        "K": "F86",
+                        "C": "F87",
+                        "B": "F88",
+                        "T": "F89"
+                    },
+                    "Mengelola Perubahan/ Z K": {
+                        "R": "F90",
+                        "K": "F91",
+                        "C": "F92",
+                        "B": "F93",
+                        "T": "F94"
+                    }
+                }
+                
+                # Get the cell reference for the given aspect and category
+                cell_ref = cell_mappings.get(aspect, {}).get(category, "")
+                # Retrieve the text from the specified cell
+                if cell_ref:
+                    cell_value = sheet[cell_ref].value
+                    return cell_value if cell_value is not None else f"Default text for {aspect} and category {category}"
+                else:
+                    return f"Default text for {aspect}"
+
+            # Define aspect categories
+            aspect_categories = {
+                "KEMAMPUAN INTELEKTUAL": ["Logika Berpikir 1", "Daya Analisa 3", "Kemampuan Numerik 5", "Kemampuan Verbal 2 dam 4"],
+                "SIKAP DAN CARA KERJA": ["Orientasi Hasil/ N G", "Fleksibilitas/ T V", "Sistematika Kerja/ C D R"],
+                "KEPRIBADIAN": ["Motivasi Berprestasi/ A", "Kerjasama/ P I", "Keterampilan Interpersonal/ B S", "Stabilitas Emosi/ E PHQ"],
+                "KEMAMPUAN BELAJAR": ["Pegembangan Diri/ W", "Mengelola Perubahan/ Z K"]
+            }
+
+            # Generate conclusion text for each aspect
+            conclusion_texts = {category: [] for category in aspect_categories}
+            for aspect in column_mappings.keys():
+                category = row_data.get(aspect, "")
+                text = generate_conclusion_text(aspect, category, sheet3)
+                for category_name, aspects in aspect_categories.items():
+                    if aspect in aspects:
+                        conclusion_texts[category_name].append(text)
+
+            # Function to determine overall recommendation
+            def determine_recommendation(iq_value, intellectual_scores, work_attitude_scores, personality_scores):
+                # Count the number of "K" (Kurang) values in each category
+                intellectual_k_count = sum(1 for score in intellectual_scores if score == "K")
+                work_attitude_k_count = sum(1 for score in work_attitude_scores if score == "K")
+                personality_k_count = sum(1 for score in personality_scores if score == "K")
+
+                # Determine recommendation based on criteria
+                if iq_value >= 90 and intellectual_k_count <= 2 and work_attitude_k_count <= 1 and personality_k_count <= 1:
+                    return "LAYAK DIREKOMENDASIKAN"
+                elif 86 <= iq_value < 90 and intellectual_k_count <= 3 and work_attitude_k_count <= 1 and personality_k_count <= 2:
+                    return "LAYAK DIPERTIMBANGKAN"
+                elif iq_value <= 84 or intellectual_k_count > 3 or work_attitude_k_count > 1 or personality_k_count > 2:
+                    return "TIDAK DISARANKAN"
+                else:
+                    return "TIDAK DISARANKAN"
+
+            # Get IQ value and scores from the table
+            iq_value = float(iq_val.text()) if iq_val else 0
+            
+            # Convert aspects dictionary values to lists with default empty strings
+            intellectual_scores = []
+            for key in ["daya_analisa", "kemampuan_numerik", "kemampuan_verbal"]:
+                intellectual_scores.append(aspects[key] if key in aspects else "")
+                
+            work_attitude_scores = []
+            for key in ["sistematika_kerja", "fleksibilitas"]:
+                work_attitude_scores.append(aspects[key] if key in aspects else "")
+                
+            personality_scores = []
+            for key in ["inisiatif", "kerjasama", "keterampilan_interpersonal", "stabilitas_emosi"]:
+                personality_scores.append(aspects[key] if key in aspects else "")
+
+            # Determine the overall recommendation
+            overall_recommendation = determine_recommendation(iq_value, intellectual_scores, work_attitude_scores, personality_scores)
             # Add page break and second page content
             html_content += f"""
                 <div class="page-break"></div>
-                <div class="page" style="padding: 1cm; font-family: Arial;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div class="page" style="font-family: Arial; width: 21cm; height: 29.7cm; margin: 0 auto; padding: 1cm; position: relative;">
+                    <div style="position: relative; display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
                         <div style="width: 150px;">
                             <img src="{logo_data_url}" alt="Logo" style="width: 100%; height: auto;">
                         </div>
                         <div style="text-align: center; flex-grow: 1;">
-                            <div style="font-size: 14px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
-                            <div style="font-size: 12px; color: #1f4e79;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
+                            <div style="font-size: 16px; color: #1f4e79;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
                         </div>
                         <div style="text-align: right; font-size: 12px;">
                             <div style="font-weight: bold; color: #1f4e79;">RAHASIA</div>
@@ -2520,31 +2769,44 @@ class ExcelViewerApp(QWidget):
                         </div>
                     </div>
 
-                    <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
+                    <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 10px; font-family: Arial, sans-serif;">
                         <tr>
                             <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">KESIMPULAN</th>
                         </tr>
                         <tr>
                             <td style="width: 20%; padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">KEMAMPUAN INTELEKTUAL</td>
                             <td style="width: 80%; padding: 8px; text-align: justify; border: 1px solid black;">
+
                                 {row_data.get('Intelegensi Umum.1', '')}
+
+                                Berdasarkan pemeriksaan kemampuan intelektual, diketahui bahwa {gender_prefix} {nama} {' '.join(conclusion_texts["KEMAMPUAN INTELEKTUAL"])}
+
                             </td>
                         </tr>
                         <tr>
                             <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">SIKAP DAN CARA KERJA</td>
                             <td style="padding: 8px; text-align: justify; border: 1px solid black;">
+
                                 {row_data.get('Sistematika Kerja/ cd.1', '')}
+
+                                Berdasarkan pemeriksaan sikap dan cara kerja, diketahui bahwa {gender_prefix} {nama} {' '.join(conclusion_texts["SIKAP DAN CARA KERJA"])}
+
                             </td>
                         </tr>
                         <tr>
                             <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">KEPRIBADIAN</td>
                             <td style="padding: 8px; text-align: justify; border: 1px solid black;">
+
                                 {row_data.get('Stabilitas Emosi / E.1', '')}
+
+                                Berdasarkan pemeriksaan kepribadian, diketahui bahwa {gender_prefix} {nama} {' '.join(conclusion_texts["KEPRIBADIAN"])}
+
                             </td>
                         </tr>
                         <tr>
                             <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">KEMAMPUAN BELAJAR</td>
                             <td style="padding: 8px; text-align: justify; border: 1px solid black;">
+
                                 {row_data.get('Fleksibilitas', '')}
                             </td>
                         </tr>
@@ -2554,15 +2816,31 @@ class ExcelViewerApp(QWidget):
                                 <div style="text-align: justify; border: 1px solid black; padding: 8px;">
                                     {row_data.get('Keterampilan Sosial / X S', '')}
                                 </div>
+
+                                Berdasarkan pemeriksaan kemampuan belajar, diketahui bahwa {gender_prefix} {nama} {' '.join(conclusion_texts["KEMAMPUAN BELAJAR"])}
+                            </td>
+                        </tr>
+                        <tr>
+                    </table>
+                    
+                    <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
+                        <tr>
+                            <th colspan="2" style="text-align: center; padding: 12px; background-color: #fbe4d5; border: 1px solid black; font-size: 14px;">PENGEMBANGAN</th>
+                        </tr>
+                        <tr>
+                            <td colspan="2" style="padding: 12px; text-align: justify; border: 1px solid black; font-size: 14px;">
+                                {development_text}
+
                             </td>
                         </tr>
                     </table>
 
                     <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
                         <tr>
-                            <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">Kategori Hasil Screening</th>
+                            <th colspan="3" style="text-align: center; padding: 10px; background-color: #fbe4d5; border: 1px solid black; font-size: 12px;">Kategori Hasil Screening</th>
                         </tr>
                         <tr>
+
                             <td style="width: 5%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if float(row_data.get('IQ ', 0)) >= 90 else ""}</td>
                             <td style="padding: 8px; border: 1px solid black;">Tahapan Normal<br><span style="font-size: 10px; color: #666;">Individu menunjukkan adaptasi gejala gangguan mental yang mengganggu fungsi sehari-hari</span></td>
                         </tr>
@@ -2573,14 +2851,30 @@ class ExcelViewerApp(QWidget):
                         <tr>
                             <td style="text-align: center; border: 1px solid black; padding: 8px;">{"X" if float(row_data.get('IQ ', 0)) < 80 else ""}</td>
                             <td style="padding: 8px; border: 1px solid black;">Gangguan<br><span style="font-size: 10px; color: #666;">Individu menunjukkan gejala-gejala gangguan yang dapat mengganggu fungsi sehari-hari</span></td>
+
+                            <td style="width: 10%; text-align: center; border: 1px solid black; padding: 10px; font-size: 14px;">{"X" if selected_category == "Tahapan Normal" else ""}</td>
+                            <td style="width: 30%; text-align: center; padding: 10px; border: 1px solid black; font-size: 14px;">Tahapan Normal</td>
+                            <td style="padding: 10px; border: 1px solid black; font-size: 14px;">Individu tidak menunjukkan adanya gejala gangguan mental yang mengganggu fungsi sehari-hari.</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; border: 1px solid black; padding: 10px; font-size: 14px;">{"X" if selected_category == "Cenderung Stress dalam Tekanan" else ""}</td>
+                            <td style="text-align: center; padding: 10px; border: 1px solid black; font-size: 14px;">Kecenderungan Stress dalam Tekanan</td>
+                            <td style="padding: 10px; border: 1px solid black; font-size: 14px;">Dalam situasi yg menimbulkan tekanan dapat berdampak pada kondisi mental & respon emosional yg ditampilkan.</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; border: 1px solid black; padding: 10px; font-size: 14px;">{"X" if selected_category == "Gejala Gangguan" else ""}</td>
+                            <td style="text-align: center; padding: 10px; border: 1px solid black; font-size: 14px;">Gangguan</td>
+                            <td style="padding: 10px; border: 1px solid black; font-size: 14px;">Individu menunjukkan gejala gangguan mental yang dapat mengganggu fungsi sehari-hari.</td>
+
                         </tr>
                     </table>
                     
-                    <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
+                    <table class="psikogram" style="width: 40%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
                         <tr>
                             <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">Kesimpulan Keseluruhan</th>
                         </tr>
                         <tr>
+
                             <td style="width: 8%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if float(row_data.get('IQ ', 0)) >= 110 else ""}</td>
                             <td style="padding: 8px; border: 1px solid black;">LAYAK DIREKOMENDASIKAN</td>
                         </tr>
@@ -2590,9 +2884,20 @@ class ExcelViewerApp(QWidget):
                         </tr>
                         <tr>
                             <td style="text-align: center; border: 1px solid black; padding: 8px;">{"X" if float(row_data.get('IQ ', 0)) < 90 else ""}</td>
+
+                            <td style="width: 10%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if overall_recommendation == "LAYAK DIREKOMENDASIKAN" else ""}</td>
+                            <td style="padding: 8px; border: 1px solid black;">LAYAK DIREKOMENDASIKAN</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 10%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if overall_recommendation == "LAYAK DIPERTIMBANGKAN" else ""}</td>
+                            <td style="padding: 8px; border: 1px solid black;">LAYAK DIPERTIMBANGKAN</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; border: 1px solid black; padding: 8px;">{"X" if overall_recommendation == "TIDAK DISARANKAN" else ""}</td>
+
                             <td style="padding: 8px; border: 1px solid black;">TIDAK DISARANKAN</td>
                         </tr>
-                    </table>    
+                    </table>
                 </div>
             """
 
@@ -2698,6 +3003,7 @@ class ExcelViewerApp(QWidget):
             web_view1 = QWebEngineView(preview_dialog)
             web_view1.setZoomFactor(0.6)
             web_view1.setFixedWidth(int(dialog_width * 0.3))  # Adjust width to 30% for 3 pages
+
             # Split HTML content at page break
             pages = html_content.split('<div class="page-break"></div>')
             web_view1.setHtml(pages[0])
@@ -2705,7 +3011,7 @@ class ExcelViewerApp(QWidget):
             
             # Create web view for page 2
             web_view2 = QWebEngineView(preview_dialog)
-            web_view2.setZoomFactor(0.6)
+            web_view2.setZoomFactor(0.55)
             web_view2.setFixedWidth(int(dialog_width * 0.3))  # Adjust width to 30% for 3 pages
             if len(pages) > 1:
                 web_view2.setHtml(pages[1])
@@ -2793,7 +3099,7 @@ class ExcelViewerApp(QWidget):
             if not file_name:
                 return  # User canceled the save dialog
                 
-            # Tambahkan ekstensi .pdf jika tidak ada
+            # Add .pdf extension if not present
             if not file_name.lower().endswith('.pdf'):
                 file_name += '.pdf'
                 
@@ -2924,7 +3230,7 @@ class ExcelViewerApp(QWidget):
                     self.message_shown = True
                     QMessageBox.warning(self, "Warning", "Failed to generate PDF data")
             
-            # Penting untuk tetap referensi ke web_view agar tidak di-garbage collect
+            # Keep reference to web_view to prevent garbage collection
             self.temp_web_view = web_view
             web_view.page().printToPdf(handle_pdf)
             
