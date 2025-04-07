@@ -25,7 +25,11 @@ import copy
 from openpyxl.utils.cell import get_column_letter
 import re
 import base64
+
+from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
+
 import random
+
 
 class ExcelViewerApp(QWidget):
     def __init__(self):
@@ -530,6 +534,7 @@ class ExcelViewerApp(QWidget):
             print(f"Error loading file: {e}")
             self.btn_select.setEnabled(True)
             QMessageBox.critical(self, "Error", "Failed to load Excel file. Please try again.")
+
     def process_excel(self, file_path):
         try:
             # Baca semua sheet dalam file Excel
@@ -976,7 +981,6 @@ class ExcelViewerApp(QWidget):
                 psikogram[base_key + '.1'] = psikogram[base_key]
 
         return psikogram
-
     def add_or_update_row(self, mode="add"):
         try:
             # Collect values from all three input groups
@@ -1048,8 +1052,8 @@ class ExcelViewerApp(QWidget):
                 ]
                 values["IQ "] = sum(iq_values) / 5
 
-                # Calculate Unnamed: 16 = (AN + GE)/2
-                values["Unnamed: 16"] = (float(values.get(" AN / Flexibilitas Pikir", 0)) + 
+                # Calculate Unnamed: 16 = (WA + GE)/2
+                values["Unnamed: 16"] = (float(values.get("WA/ Verbal", 0)) + 
                                        float(values.get("GE / Daya Abstraksi Verbal", 0))) / 2
 
                 # Calculate KLASIFIKASI based on IQ
@@ -1471,7 +1475,7 @@ class ExcelViewerApp(QWidget):
             if c_idx >= 0 and coding_idx >= 0:
                 c_val = self.convert_to_float(self.get_cell_text(row, c_idx))
                 
-                # Formula: =@IFS(AE4=1,9,AE4=2,8,AE4=3,7,AE4=4,6,AE4=5,5,AE4=6,4,AE4=7,3,AE4=8,2,AE4=9,1)
+                # Formula: =IFS(AE4=1,9,AE4=2,8,AE4=3,7,AE4=4,6,AE4=5,5,AE4=6,4,AE4=7,3,AE4=8,2,AE4=9,1)
                 if c_val is not None and 1 <= c_val <= 9:
                     c_coding = 10 - c_val
                     # Jika c_coding adalah integer, gunakan QTableWidgetItem dengan setData
@@ -1683,1117 +1687,338 @@ class ExcelViewerApp(QWidget):
             return
         
         try:
-            # Buat direktori backup jika belum ada
+            # Import yang diperlukan
             import os
             import shutil
-            import copy
             from datetime import datetime
+            import openpyxl
+            from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
+            from openpyxl.utils.cell import get_column_letter
             
-            # Simpan jalur file asli
-            original_file = self.excel_file_path
-            dir_path = os.path.dirname(original_file)
-            file_name = os.path.basename(original_file)
-            file_name_without_ext, file_ext = os.path.splitext(file_name)
+            # Buka workbook
+            wb = openpyxl.load_workbook(self.excel_file_path, data_only=False)
+            sheet = wb["Sheet1"] if "Sheet1" in wb.sheetnames else wb.active
             
-            # Buat folder backup
+            # Buat backup
+            dir_path = os.path.dirname(self.excel_file_path)
             backup_dir = os.path.join(dir_path, "backup")
             os.makedirs(backup_dir, exist_ok=True)
             
-            # Buat backup file
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_file = os.path.join(backup_dir, f"backup_{timestamp}_{file_name}")
-            shutil.copy2(original_file, backup_file)
+            backup_file = os.path.join(backup_dir, f"backup_{timestamp}_{os.path.basename(self.excel_file_path)}")
+            shutil.copy2(self.excel_file_path, backup_file)
             
-            # Buka file Excel langsung
-            import openpyxl
-            from openpyxl.styles import Border, Side, Alignment, Protection, Font
-            from openpyxl.utils.cell import get_column_letter
-            
-            # Buka workbook - pastikan parameter yang benar
-            # data_only=False untuk mempertahankan formula
-            # keep_vba=False untuk menghindari masalah korupsi file
-            wb = openpyxl.load_workbook(original_file, data_only=False, keep_vba=False)
-            
-            # Pilih sheet utama (biasanya Sheet1)
-            if "Sheet1" in wb.sheetnames:
-                sheet = wb["Sheet1"]
-            else:
-                sheet = wb.active
-            
-            print(f"File Excel dibuka: {original_file}")
-            
-            # Cari baris header yang berisi "No"
+            # Cari baris header
             header_row = None
-            for row_idx in range(1, min(sheet.max_row + 1, 100)):
-                for col_idx in range(1, min(sheet.max_column + 1, 20)):
-                    cell_value = sheet.cell(row=row_idx, column=col_idx).value
-                    if cell_value is not None and str(cell_value).strip() == "No":
-                        header_row = row_idx
+            for row in range(1, min(sheet.max_row + 1, 10)):
+                for col in range(1, min(sheet.max_column + 1, 10)):
+                    if sheet.cell(row=row, column=col).value == "No":
+                        header_row = row
                         break
                 if header_row:
                     break
             
             if not header_row:
-                header_row = 3  # Default jika tidak ditemukan
-                print(f"Header tidak ditemukan, menggunakan baris {header_row}")
-            else:
-                print(f"Header ditemukan di baris {header_row}")
+                header_row = 3
             
-            # Buat pemetaan antara nama kolom di file Excel dan indeks kolom
+            print("DEBUG - Scanning header row for columns...")
+            
+            # Buat mapping kolom
             col_mapping = {}
+            unnamed_16_col = 17  # Kolom 17 untuk Unnamed: 16
+            c_coding_col = None    # Untuk menyimpan kolom C (Coding)
+            ae_col = None          # Untuk menyimpan kolom C (untuk rumus C Coding)
+            wa_col = None          # Untuk rumus Unnamed: 16 (WA/Verbal)
+            ge_col = None          # Untuk rumus Unnamed: 16 (GE)
             
-            # Simpan sel dengan formula agar bisa dipertahankan
-            formula_cells = {}
+            # Cetak semua header untuk debugging
+            print("\nDEBUG - All headers in Excel:")
+            for col in range(1, sheet.max_column + 1):
+                header_value = sheet.cell(row=header_row, column=col).value
+                if header_value:
+                    print(f"Column {col}: '{header_value}'")
             
-            # Baris data sampel pertama (jika ada) untuk mendapatkan formula
-            formula_cols_to_check = [43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55]  # Kolom yang perlu diperiksa khusus
+            print("\nDEBUG - All columns in UI table:")
+            for col_name in self.columns:
+                print(f"UI Column: '{col_name}'")
             
-            if sheet.max_row > header_row:
-                sample_row = header_row + 1
-                for col_idx in range(1, sheet.max_column + 1):
-                    # Prioritaskan kolom yang perlu diperiksa khusus
-                    is_prioritized = col_idx in formula_cols_to_check
+            # Scan header row
+            for col in range(1, sheet.max_column + 1):
+                header_value = sheet.cell(row=header_row, column=col).value
+                if header_value:
+                    header_str = str(header_value).strip()
+                    col_mapping[header_str] = col
                     
-                    cell = sheet.cell(row=sample_row, column=col_idx)
-                    if cell.value is not None and isinstance(cell.value, str) and cell.value.startswith('='):
-                        formula = cell.value
-                        
-                        # Cek apakah ini formula IFS yang memerlukan penanganan khusus
-                        if ('IFS(' in formula or '_xlfn.IFS(' in formula or '@IFS(' in formula):
-                            # Simpan template formula IFS untuk digunakan nanti
-                            formula_template = formula
-                            # Ganti referensi baris dengan placeholder {row}
-                            formula_parts = []
-                            current_pos = 0
-                            # Cari semua referensi sel dalam formula
-                            import re
-                            cell_refs = re.findall(r'[A-Z]+\d+', formula)
-                            for ref in cell_refs:
-                                # Pisahkan kolom dan baris
-                                col_part = ''.join(c for c in ref if c.isalpha())
-                                row_part = ''.join(c for c in ref if c.isdigit())
-                                # Ganti dengan template
-                                formula = formula.replace(ref, col_part + "{row}")
-                            
-                            formula_cells[col_idx] = {
-                                'type': 'IFS',
-                                'template': formula,
-                                'original': cell.value
-                            }
-                            print(f"Formula IFS ditemukan di kolom {col_idx}: {cell.value}")
-                            print(f"Template formula: {formula}")
-                        else:
-                            # Formula biasa
-                            formula_cells[col_idx] = {
-                                'type': 'normal',
-                                'formula': formula
-                            }
-                            print(f"Formula normal ditemukan di kolom {col_idx}: {formula}")
-                    elif is_prioritized:
-                        # Jika tidak ditemukan formula di kolom prioritas, cek baris berikutnya
-                        for next_row in range(header_row + 2, min(header_row + 6, sheet.max_row + 1)):
-                            next_cell = sheet.cell(row=next_row, column=col_idx)
-                            if next_cell.value is not None and isinstance(next_cell.value, str) and next_cell.value.startswith('='):
-                                formula = next_cell.value
-                                # Analisis dan simpan formula
-                                if ('IFS(' in formula or '_xlfn.IFS(' in formula or '@IFS(' in formula):
-                                    # Proses formula IFS
-                                    import re
-                                    # Cari semua referensi sel dalam formula
-                                    cell_refs = re.findall(r'[A-Z]+\d+', formula)
-                                    # Dapatkan baris asli
-                                    original_row = next_row
-                                    # Buat template dengan mengganti nomor baris dengan {row}
-                                    template_formula = formula
-                                    for ref in cell_refs:
-                                        col_part = ''.join(c for c in ref if c.isalpha())
-                                        row_part = ''.join(c for c in ref if c.isdigit())
-                                        # Ganti hanya jika baris sama dengan baris formula
-                                        if row_part == str(original_row):
-                                            template_formula = template_formula.replace(ref, col_part + "{row}")
-                                    
-                                    formula_cells[col_idx] = {
-                                        'type': 'IFS',
-                                        'template': template_formula,
-                                        'original': formula,
-                                        'original_row': original_row
-                                    }
-                                    print(f"Formula IFS ditemukan di kolom {col_idx} (baris alternatif {next_row}): {formula}")
-                                    print(f"Template formula: {template_formula}")
-                                else:
-                                    # Formula biasa
-                                    formula_cells[col_idx] = {
-                                        'type': 'normal',
-                                        'formula': formula,
-                                        'original_row': next_row
-                                    }
-                                    print(f"Formula normal ditemukan di kolom {col_idx} (baris alternatif {next_row}): {formula}")
-                                break
-                
-                # Cek dan tambahkan formula yang umum digunakan di kolom psikogram jika belum ada
-                missing_psikogram_formulas = {
-                    # Formulas for columns 45-57
-                    # Using the exact columns specified
-                    45: "=IF(L{row}<80,\"R\",IF(L{row}<100,\"K\",IF(L{row}<120,\"C\",IF(L{row}<140,\"B\",\"T\"))))",  # Logika Berpikir 1
-                    46: "=IF(M{row}<80,\"R\",IF(M{row}<100,\"K\",IF(M{row}<120,\"C\",IF(M{row}<140,\"B\",\"T\"))))",  # Daya Analisa 3
-                    47: "=IF(O{row}<80,\"R\",IF(O{row}<100,\"K\",IF(O{row}<120,\"C\",IF(O{row}<140,\"B\",\"T\"))))",  # Kemampuan Verbal 2 dam 4
-                    48: "=IF(N{row}<80,\"R\",IF(N{row}<100,\"K\",IF(N{row}<120,\"C\",IF(N{row}<140,\"B\",\"T\"))))",  # Kemampuan Numerik 5
-                    49: "=@IFS(AO{row}<2,\"R\",AO{row}<4,\"K\",AO{row}<6,\"C\",AO{row}<9,\"B\",AO{row}=9,\"T\")",  # Sistematika Kerja/ C D R
-                    50: "=@IFS(AN{row}<2,\"R\",AN{row}<4,\"K\",AN{row}<6,\"C\",AN{row}<9,\"B\",AN{row}=9,\"T\")",  # Orientasi Hasil/ N G
-                    51: "=@IFS(AP{row}<2,\"R\",AP{row}<4,\"K\",AP{row}<6,\"C\",AP{row}<9,\"B\",AP{row}=9,\"T\")",  # Fleksibilitas/ T V
-                    52: "=@IFS(U{row}<2,\"R\",U{row}<4,\"K\",U{row}<6,\"C\",U{row}<9,\"B\",U{row}=9,\"T\")",  # Motivasi Berprestasi/ A
-                    53: "=@IFS(AQ{row}<2,\"R\",AQ{row}<4,\"K\",AQ{row}<6,\"C\",AQ{row}<9,\"B\",AQ{row}=9,\"T\")",  # Kerjasama/ P I
-                    54: "=@IFS(AR{row}<2,\"R\",AR{row}<4,\"K\",AR{row}<6,\"C\",AR{row}<9,\"B\",AR{row}=9,\"T\")",  # Keterampilan Interpersonal/ B S
-                    55: "=@IFS(AJ{row}<2,\"R\",AJ{row}<4,\"K\",AJ{row}<6,\"C\",AJ{row}<9,\"B\",AJ{row}=9,\"T\")",  # Stabilitas Emosi/ E PHQ
-                    56: "=@IFS(AM{row}<2,\"R\",AM{row}<4,\"K\",AM{row}<6,\"C\",AM{row}<9,\"B\",AM{row}=9,\"T\")",  # Pegembangan Diri/ W
-                    57: "=@IFS(AS{row}<2,\"R\",AS{row}<4,\"K\",AS{row}<6,\"C\",AS{row}<9,\"B\",AS{row}=9,\"T\")",  # Mengelola Perubahan/ Z K
-                }
-                
-                # Tambahkan formula dari file asli jika ditemukan di kolom mana pun
-                for row_idx in range(header_row + 1, min(sheet.max_row + 1, header_row + 10)):
-                    for col_idx in range(52, 56):  # Cek khusus kolom 52-55
-                        if col_idx not in formula_cells:
-                            cell = sheet.cell(row=row_idx, column=col_idx)
-                            if cell.value is not None and isinstance(cell.value, str) and cell.value.startswith('='):
-                                formula = cell.value
-                                
-                                if ('IFS(' in formula or '_xlfn.IFS(' in formula or '@IFS(' in formula):
-                                    # Proses formula IFS
-                                    import re
-                                    cell_refs = re.findall(r'[A-Z]+\d+', formula)
-                                    template_formula = formula
-                                    for ref in cell_refs:
-                                        col_part = ''.join(c for c in ref if c.isalpha())
-                                        row_part = ''.join(c for c in ref if c.isdigit())
-                                        if row_part == str(row_idx):
-                                            template_formula = template_formula.replace(ref, col_part + "{row}")
-                                    
-                                    formula_cells[col_idx] = {
-                                        'type': 'IFS',
-                                        'template': template_formula,
-                                        'original': formula,
-                                        'original_row': row_idx
-                                    }
-                                    print(f"Formula asli ditemukan di kolom {col_idx} (baris {row_idx}): {formula}")
-                                    print(f"Template: {template_formula}")
-                                else:
-                                    formula_cells[col_idx] = {
-                                        'type': 'normal',
-                                        'formula': formula,
-                                        'original_row': row_idx
-                                    }
-                                    print(f"Formula normal ditemukan di kolom {col_idx} (baris {row_idx}): {formula}")
-                
-                # Tambahkan formula yang hilang
-                for col, formula_template in missing_psikogram_formulas.items():
-                    if col not in formula_cells:
-                        formula_cells[col] = {
-                            'type': 'IFS',
-                            'template': formula_template,
-                            'original': formula_template.replace("{row}", str(header_row + 1)),
-                            'is_generated': True
-                        }
-                        print(f"Menambahkan formula IFS yang hilang untuk kolom {col}: {formula_template}")
-                
-                # Buat dictionary untuk menyimpan hasil evaluasi formula
-                formula_results = {}
-                
-                # Coba evaluasi formula IFS untuk mendapatkan hasilnya
-                try:
-                    # Hanya jika file sudah memiliki data
-                    if sheet.max_row > header_row + 1:
-                        # Ambil sampel baris pertama untuk evaluasi
-                        sample_row = header_row + 1
-                        
-                        # Cek nilai-nilai di kolom yang digunakan dalam formula
-                        col_values = {}
-                        for col_letter in ['F', 'I', 'N', 'O', 'M', 'AK', 'AL', 'AF', 'AH', 'AM', 'AN', 'AO', 'AP', 'AQ', 'AR', 'AS', 'AT', 'AU', 'AV', 'AW', 'AX', 'AY', 'AZ', 'BA', 'BB']:
-                            col_index = openpyxl.utils.column_index_from_string(col_letter)
-                            cell = sheet.cell(row=sample_row, column=col_index)
-                            # Simpan nilai numeriknya jika bisa
-                            try:
-                                col_values[col_letter] = float(cell.value) if cell.value else 0
-                            except (ValueError, TypeError):
-                                col_values[col_letter] = cell.value if cell.value else ""
-                        
-                        # Evaluasi formula untuk kolom 43-54
-                        for col_idx in range(43, 55):
-                            if col_idx in missing_psikogram_formulas:
-                                formula_template = missing_psikogram_formulas[col_idx]
-                                # Ekstrak kolom referensi (mis. AK, AL, dll.)
-                                ref_col = None
-                                
-                                # Untuk formula IF
-                                if 'IF(' in formula_template and not 'IFS(' in formula_template:
-                                    ref_match = re.search(r'([A-Z]{1,2})\{row\}', formula_template)
-                                    if ref_match:
-                                        ref_col = ref_match.group(1)
-                                        if ref_col and ref_col in col_values:
-                                            value = col_values[ref_col]
-                                            if isinstance(value, (int, float)):
-                                                if value < 90:
-                                                    formula_results[col_idx] = "K"
-                                                elif value < 110:
-                                                    formula_results[col_idx] = "C"
-                                                else:
-                                                    formula_results[col_idx] = "B"
-                                                print(f"Hasil evaluasi formula IF kolom {col_idx}: {formula_results[col_idx]} (ref:{ref_col}={value})")
-                                
-                                # Untuk formula IFS (50-51 memiliki pola berbeda)
-                                elif col_idx in [50, 51]:
-                                    # Ekstrak kolom referensi (mis. AK, AH, dll.)
-                                    ref_match = re.search(r'([A-Z]{1,2})\{row\}', formula_template)
-                                    if ref_match:
-                                        ref_col = ref_match.group(1)
-                                        if ref_col and ref_col in col_values:
-                                            value = col_values[ref_col]
-                                            if isinstance(value, (int, float)):
-                                                if value < 4:
-                                                    formula_results[col_idx] = "B"
-                                                elif value < 6:
-                                                    formula_results[col_idx] = "C"
-                                                elif value > 5:
-                                                    formula_results[col_idx] = "K"
-                                                else:
-                                                    formula_results[col_idx] = ""
-                                                print(f"Hasil evaluasi formula IFS terbalik kolom {col_idx}: {formula_results[col_idx]} (ref:{ref_col}={value})")
-                                
-                                # Untuk formula IFS standar
-                                elif '<4' in formula_template and '<6' in formula_template:
-                                    # Format formula standar: IFS(XX{row}<4,"K",XX{row}<6,"C",XX{row}>5,"B")
-                                    ref_match = re.search(r'([A-Z]{1,2})\{row\}', formula_template)
-                                    if ref_match:
-                                        ref_col = ref_match.group(1)
-                                        if ref_col and ref_col in col_values:
-                                            value = col_values[ref_col]
-                                            if isinstance(value, (int, float)):
-                                                if value < 4:
-                                                    formula_results[col_idx] = "K"
-                                                elif value < 6:
-                                                    formula_results[col_idx] = "C"
-                                                elif value > 5:
-                                                    formula_results[col_idx] = "B"
-                                                else:
-                                                    formula_results[col_idx] = ""
-                                                print(f"Hasil evaluasi formula IFS standar kolom {col_idx}: {formula_results[col_idx]} (ref:{ref_col}={value})")
-                        
-                        # Evaluasi khusus untuk kolom 55-66 (referensi ke Sheet2)
-                        for col_idx in range(55, 67):
-                            ref_col_letter = None
-                            
-                            # Tentukan kolom referensi untuk setiap kolom special
-                            if col_idx == 55:
-                                ref_col_letter = 'AQ'
-                            elif col_idx == 56:
-                                ref_col_letter = 'AR'
-                            elif col_idx == 57:
-                                ref_col_letter = 'AS'
-                            elif col_idx == 58:
-                                ref_col_letter = 'AT'
-                            elif col_idx == 59:
-                                ref_col_letter = 'AU'
-                            elif col_idx == 60:
-                                ref_col_letter = 'AV'
-                            elif col_idx == 61:
-                                ref_col_letter = 'AW'
-                            elif col_idx == 62:
-                                ref_col_letter = 'AX'
-                            elif col_idx == 63:
-                                ref_col_letter = 'AY'
-                            elif col_idx == 64:
-                                ref_col_letter = 'AZ'
-                            elif col_idx == 65:
-                                ref_col_letter = 'BA'
-                            elif col_idx == 66:
-                                ref_col_letter = 'BB'
-                            
-                            if ref_col_letter and ref_col_letter in col_values:
-                                ref_value = col_values.get(ref_col_letter)
-                                if ref_value in ["B", "C", "K"]:
-                                    formula_results[col_idx] = ref_value
-                                    print(f"Hasil evaluasi formula Sheet2 kolom {col_idx}: {formula_results[col_idx]} (ref:{ref_col_letter}={ref_value})")
-                
-                except Exception as e:
-                    print(f"Error saat mengevaluasi formula: {e}")
-                
-                # Cek baris-baris berikutnya untuk memverifikasi formula IFS yang berbeda
-                for sample_offset in range(2, min(6, sheet.max_row - header_row + 1)):
-                    check_row = header_row + sample_offset
-                    for col_idx, formula_info in formula_cells.items():
-                        if isinstance(formula_info, dict) and formula_info.get('type') == 'IFS':
-                            cell = sheet.cell(row=check_row, column=col_idx)
-                            if cell.value is not None and isinstance(cell.value, str) and cell.value.startswith('='):
-                                print(f"Formula IFS di baris {check_row}, kolom {col_idx}: {cell.value}")
+                    # Deteksi kolom-kolom yang diperlukan
+                    if header_str == "C (Coding)":
+                        c_coding_col = col
+
+                    elif header_str == "WA/ Verbal":
+                        wa_col = col
+
+                    elif header_str == "GE / Daya Abstraksi Verbal":
+                        ge_col = col
+
+                    elif header_str == "C":
+                        ae_col = col
+
+        
             
-            # Deteksi kolom IQ dan Flexibilitas Pikir dengan spasi
-            iq_column = None
-            flex_column = None
-            
-            # Deteksi kolom Unnamed untuk pemetaan khusus
-            unnamed_columns = {}
-            
-            # Kolom-kolom yang perlu pemetaan khusus
-            special_columns = {
-                "Unnamed: 13": 14,  # Perhatikan perbedaan indeks: kolom 14 di Excel = indeks 13 di array
-                "Unnamed: 14": 15,
-                "Intelegensi Umum.1": 55,
-                "Daya Analisa/ AN.1": 56,
-                "Kemampuan Verbal/WA GE.1": 57,
-                "Kemampuan Numerik/ RA ZR.1": 58,
-                "Daya Ingat/ME.1": 59,
-                "Sistematika Kerja/ cd.1": 61,
-                "Inisiatif/W.1": 62,
-                "Stabilitas Emosi / E.1": 63,
-                "Komunikasi / B O.1": 64
-            }
-            
-            # Pemetaan untuk kolom Psikogram (bagian POTENSI INTELEKTUAL dan KEPRIBADIAN)
-            psikogram_columns = {
-                "Intelegensi Umum": 43,  
-                "Daya Analisa/ AN": 44,
-                "Kemampuan Verbal/WA GE": 45,
-                "Kemampuan Numerik/ RA ZR": 46,
-                "Daya Ingat/ME": 47,
-                "Fleksibilitas/ T V": 48,
-                "Sistematika Kerja/ cd": 49,
-                "Inisiatif/W": 50,
-                "Stabilitas Emosi / E": 51,
-                "Komunikasi / B O": 52,
-                "Keterampilan Interpersonal / S O": 53,
-                "Kerjasama / B X": 54
-            }
-            
-            # Pisahkan kolom untuk melacak secara eksplisit
-            potensi_intelektual_columns = [
-                "Intelegensi Umum", 
-                "Daya Analisa/ AN", 
-                "Kemampuan Verbal/WA GE", 
-                "Kemampuan Numerik/ RA ZR", 
-                "Daya Ingat/ME", 
-                "Fleksibilitas/ T V"
-            ]
-            
-            kepribadian_columns = [
-                "Sistematika Kerja/ cd", 
-                "Inisiatif/W", 
-                "Stabilitas Emosi / E", 
-                "Komunikasi / B O", 
-                "Keterampilan Interpersonal / S O", 
-                "Kerjasama / B X"
-            ]
-            
-            for col_idx in range(1, sheet.max_column + 1):
-                cell_value = sheet.cell(row=header_row, column=col_idx).value
-                if cell_value is not None:
-                    col_name = str(cell_value)
-                    col_name_stripped = col_name.strip()
-                    
-                    # Simpan semua pemetaan kolom
-                    col_mapping[col_name] = col_idx
-                    
-                    # Deteksi kolom Unnamed
-                    if col_name.startswith("Unnamed:"):
-                        unnamed_columns[col_name] = col_idx
-                        print(f"Kolom Unnamed ditemukan: '{col_name}' di kolom {col_idx}")
-                    
-                    # Deteksi kolom IQ dengan spasi
-                    if col_name_stripped == "IQ" and (col_name.startswith(" ") or col_name.endswith(" ")):
-                        iq_column = col_idx
-                        print(f"Kolom IQ (dengan spasi) ditemukan: '{col_name}' di kolom {col_idx}")
-                    
-                    # Deteksi kolom Flexibilitas Pikir dengan spasi
-                    if col_name_stripped == "Flexibilitas Pikir" and (col_name.startswith(" ") or col_name.endswith(" ")):
-                        flex_column = col_idx
-                        print(f"Kolom Flexibilitas Pikir (dengan spasi) ditemukan: '{col_name}' di kolom {col_idx}")
-                    
-                    print(f"Pemetaan kolom: '{col_name}' -> {col_idx}")
-            
-            # Pemetaan kolom Unnamed secara manual jika tidak ditemukan
-            if 14 not in unnamed_columns.values():
-                unnamed_columns["Unnamed: 13"] = 14
-                print(f"Memetakan secara manual: 'Unnamed: 13' -> 14")
-            
-            if 15 not in unnamed_columns.values():
-                unnamed_columns["Unnamed: 14"] = 15
-                print(f"Memetakan secara manual: 'Unnamed: 14' -> 15")
-            
-            # Tentukan kolom "No"
-            no_col_idx = col_mapping.get("No", 1)
-            
-            # Tentukan kolom duplikat yang akan dihapus dari UI sebelum menyimpan
-            duplicate_columns = []
-            
-            # Cari kolom IQ dan Flexibilitas Pikir tanpa spasi di seluruh kolom
-            for i, col_name in enumerate(self.columns):
-                # Cari kolom duplikat IQ tanpa spasi
-                if col_name.strip() == "IQ" and col_name != "IQ " and "IQ " in self.columns:
-                    duplicate_columns.append(i)
-                    print(f"Kolom duplikat IQ ditemukan di indeks {i}: '{col_name}'")
-                
-                # Cari kolom duplikat Flexibilitas Pikir tanpa spasi
-                if col_name.strip() == "Flexibilitas Pikir" and col_name != "Flexibilitas Pikir " and "Flexibilitas Pikir " in self.columns:
-                    duplicate_columns.append(i)
-                    print(f"Kolom duplikat Flexibilitas Pikir ditemukan di indeks {i}: '{col_name}'")
-            
-            # Jika menggunakan versi tanpa spasi (versi lama), ubah informasi di special_columns
-            if "IQ " in self.columns and iq_column is None:
-                iq_idx = self.columns.index("IQ ")
-                iq_column = iq_idx + 1  # +1 karena kolom Excel dimulai dari 1
-                print(f"Menggunakan kolom IQ dengan spasi di indeks {iq_idx} (Excel: {iq_column})")
-            
-            if "Flexibilitas Pikir " in self.columns and flex_column is None:
-                flex_idx = self.columns.index("Flexibilitas Pikir ")
-                flex_column = flex_idx + 1  # +1 karena kolom Excel dimulai dari 1
-                print(f"Menggunakan kolom Flexibilitas Pikir dengan spasi di indeks {flex_idx} (Excel: {flex_column})")
-            
-            # Simpan informasi tentang tinggi baris
-            row_heights = {}
-            for row_idx in range(1, min(sheet.max_row + 1, header_row + 10)):
-                if row_idx in sheet.row_dimensions and sheet.row_dimensions[row_idx].height is not None:
-                    row_heights[row_idx] = sheet.row_dimensions[row_idx].height
-            
-            # Simpan tinggi baris default dari baris data pertama (jika ada)
-            default_row_height = None
-            if header_row + 1 in sheet.row_dimensions and sheet.row_dimensions[header_row + 1].height is not None:
-                default_row_height = sheet.row_dimensions[header_row + 1].height
-                print(f"Tinggi baris default (dari baris data pertama): {default_row_height}")
-            else:
-                default_row_height = 15  # Tinggi default Excel biasanya sekitar 15
-                print(f"Menggunakan tinggi baris default: {default_row_height}")
-            
-            # Simpan informasi tentang merged cells
-            merged_ranges = list(sheet.merged_cells.ranges)
-            print(f"Jumlah merged cells: {len(merged_ranges)}")
-            
-            # Hapus semua merged cells sebelum menghapus baris (untuk menghindari error)
-            for merge_range in merged_ranges:
-                sheet.unmerge_cells(str(merge_range))
-            
-            # Hapus semua data yang ada di bawah header
-            # Ini akan memastikan kita tidak menduplikasi data
-            data_rows_to_delete = []
-            for row_idx in range(header_row + 1, sheet.max_row + 1):
-                cell_value = sheet.cell(row=row_idx, column=no_col_idx).value
-                if cell_value is not None:
-                    data_rows_to_delete.append(row_idx)
-            
-            # Hapus dari baris terbawah ke atas untuk menghindari pergeseran indeks
-            for row_idx in sorted(data_rows_to_delete, reverse=True):
-                sheet.delete_rows(row_idx)
-            
-            print(f"Menghapus {len(data_rows_to_delete)} baris data lama")
-            
-            # Tambahan untuk menangani warna khusus pada file seperti yang terlihat di screenshot
-            # Identifikasi area header utama (seperti IST, PAPIKOSTIK, PSIKOGRAM)
-            special_headers = ["IST", "PAPIKOSTIK", "PSIKOGRAM", "POTESI INTELEKTUAL", "SIKAP DAN CARA KERJA"]
-            header_colors = {}
-            
-            # Cari row dan kolom untuk header khusus
-            for row_idx in range(1, header_row):
-                for col_idx in range(1, sheet.max_column + 1):
-                    cell_value = sheet.cell(row=row_idx, column=col_idx).value
-                    if cell_value and any(header in str(cell_value).upper() for header in special_headers):
-                        header_colors[str(cell_value)] = {
-                            'row': row_idx,
-                            'col': col_idx,
-                            'fill': copy.copy(sheet.cell(row=row_idx, column=col_idx).fill)
-                        }
-                        print(f"Header khusus ditemukan: {cell_value} di baris {row_idx}, kolom {col_idx}")
-            
-            # Simpan informasi ini untuk digunakan nanti (jika perlu)
-            self.header_colors = header_colors
-            
-            # Simpan untuk sel data pada baris pertama (sebagai referensi)
-            special_data_styles = {}
+            # Simpan formula dari baris pertama data (jika ada)
+            formulas = {}
             if sheet.max_row > header_row:
                 first_data_row = header_row + 1
-                for col_idx in range(1, sheet.max_column + 1):
-                    cell = sheet.cell(row=first_data_row, column=col_idx)
-                    if cell.has_style and cell.fill and cell.fill.start_color and cell.fill.start_color.index:
-                        special_data_styles[col_idx] = copy.copy(cell.fill)
+                for col in range(1, sheet.max_column + 1):
+                    cell = sheet.cell(row=first_data_row, column=col)
+                    if isinstance(cell.value, str) and cell.value.startswith('='):
+                        formulas[col] = cell.value
             
-            # Simpan informasi tentang sel-sel data sampel
-            # Untuk setiap baris di bawah header (jika ada), simpan sebagai template
-            template_rows = {}
-            sample_row_count = min(5, sheet.max_row - header_row)  # Maksimal 5 baris template
-            for offset in range(1, sample_row_count + 1):
-                sample_row = header_row + offset
-                template_rows[offset] = {}
-                
-                for col_idx in range(1, sheet.max_column + 1):
-                    source_cell = sheet.cell(row=sample_row, column=col_idx)
-                    if source_cell.has_style:
-                        template_rows[offset][col_idx] = {
-                            'font': copy.copy(source_cell.font),
-                            'border': copy.copy(source_cell.border),
-                            'fill': copy.copy(source_cell.fill),
-                            'number_format': source_cell.number_format,
-                            'alignment': copy.copy(source_cell.alignment),
-                            'value_type': type(source_cell.value)
-                        }
+            # Hapus data lama
+            if sheet.max_row > header_row:
+                sheet.delete_rows(header_row + 1, sheet.max_row - header_row)
             
-            # Jika tidak ada baris sampel, gunakan style header sebagai default
-            if not template_rows:
-                col_styles = {}
-                for col_idx in range(1, sheet.max_column + 1):
-                    source_cell = sheet.cell(row=header_row, column=col_idx)
-                    if source_cell.has_style:
-                        col_styles[col_idx] = {
-                            'font': copy.copy(source_cell.font),
-                            'border': copy.copy(source_cell.border),
-                            'fill': copy.copy(source_cell.fill),
-                            'number_format': source_cell.number_format,
-                            'alignment': copy.copy(source_cell.alignment)
-                        }
-                template_rows[1] = col_styles
-            
-            # Kumpulkan data dari tabel UI (hapus kolom duplikat)
-            ui_data = []
-            for row in range(self.table.rowCount()):
-                row_data = {}
-                for col, column_name in enumerate(self.columns):
-                    # Lewati kolom duplikat
-                    if col in duplicate_columns:
-                        continue
+            # Simpan style header yang penting saja
+            header_styles = {}
+            for col in range(1, sheet.max_column + 1):
+                cell = sheet.cell(row=header_row, column=col)
+                if cell.has_style:
+                    # Hanya simpan fill dan border
+                    border = Border(
+                        left=cell.border.left,
+                        right=cell.border.right,
+                        top=cell.border.top,
+                        bottom=cell.border.bottom
+                    )
                     
-                    item = self.table.item(row, col)
+                    fill = None
+                    if cell.fill and cell.fill.fill_type:
+                        fill = PatternFill(
+                            fill_type=cell.fill.fill_type,
+                            start_color=cell.fill.start_color,
+                            end_color=cell.fill.end_color
+                        )
+                    
+                    header_styles[col] = {
+                        'border': border,
+                        'fill': fill
+                    }
+            
+            # Formula untuk kolom psikogram (46-58)
+            psikogram_formulas = {
+                46: "=IF(L{row}<80,\"R\",IF(L{row}<100,\"K\",IF(L{row}<120,\"C\",IF(L{row}<140,\"B\",\"T\"))))",  # Logika Berpikir 1
+                47: "=IF(M{row}<80,\"R\",IF(M{row}<100,\"K\",IF(M{row}<120,\"C\",IF(M{row}<140,\"B\",\"T\"))))",  # Daya Analisa 3
+                48: "=IF(O{row}<80,\"R\",IF(O{row}<100,\"K\",IF(O{row}<120,\"C\",IF(O{row}<140,\"B\",\"T\"))))",  # Kemampuan Verbal 2 dam 4
+                49: "=IF(N{row}<80,\"R\",IF(N{row}<100,\"K\",IF(N{row}<120,\"C\",IF(N{row}<140,\"B\",\"T\"))))",  # Kemampuan Numerik 5
+                50: "=IFS(AO{row}<2,\"R\",AO{row}<4,\"K\",AO{row}<6,\"C\",AO{row}<9,\"B\",AO{row}=9,\"T\")",  # Sistematika Kerja/ C D R
+                51: "=IFS(AN{row}<2,\"R\",AN{row}<4,\"K\",AN{row}<6,\"C\",AN{row}<9,\"B\",AN{row}=9,\"T\")",  # Orientasi Hasil/ N G
+                52: "=IFS(AP{row}<2,\"R\",AP{row}<4,\"K\",AP{row}<6,\"C\",AP{row}<9,\"B\",AP{row}=9,\"T\")",  # Fleksibilitas/ T V
+                53: "=IFS(U{row}<2,\"R\",U{row}<4,\"K\",U{row}<6,\"C\",U{row}<9,\"B\",U{row}=9,\"T\")",  # Motivasi Berprestasi/ A
+                54: "=IFS(AQ{row}<2,\"R\",AQ{row}<4,\"K\",AQ{row}<6,\"C\",AQ{row}<9,\"B\",AQ{row}=9,\"T\")",  # Kerjasama/ P I
+                55: "=IFS(AR{row}<2,\"R\",AR{row}<4,\"K\",AR{row}<6,\"C\",AR{row}<9,\"B\",AR{row}=9,\"T\")",  # Keterampilan Interpersonal/ B S
+                56: "=IFS(AJ{row}<2,\"R\",AJ{row}<4,\"K\",AJ{row}<6,\"C\",AJ{row}<9,\"B\",AJ{row}=9,\"T\")",  # Stabilitas Emosi/ E PHQ
+                57: "=IFS(AM{row}<2,\"R\",AM{row}<4,\"K\",AM{row}<6,\"C\",AM{row}<9,\"B\",AM{row}=9,\"T\")",  # Pegembangan Diri/ W
+                58: "=IFS(AS{row}<2,\"R\",AS{row}<4,\"K\",AS{row}<6,\"C\",AS{row}<9,\"B\",AS{row}=9,\"T\")",  # Mengelola Perubahan/ Z K
+            }
+            
+            # Tambahkan mapping kolom psikogram
+            psikogram_column_mapping = {
+                "Logika Berpikir 1": 46,
+                "Daya Analisa 3": 47,
+                "Kemampuan Verbal 2 dam 4": 48,
+                "Kemampuan Numerik 5": 49,
+                "Sistematika Kerja/ C D R": 50,
+                "Orientasi Hasil/ N G": 51,
+                "Fleksibilitas/ T V": 52,
+                "Motivasi Berprestasi/ A": 53,
+                "Kerjasama/ P I": 54,
+                "Keterampilan Interpersonal/ B S": 55,
+                "Stabilitas Emosi/ E PHQ": 56,
+                "Pegembangan Diri/ W": 57,
+                "Mengelola Perubahan/ Z K": 58
+            }
+            
+            # Tulis data baru
+            for row_idx, row in enumerate(range(self.table.rowCount()), start=1):
+                target_row = header_row + row_idx
+                
+                # Dictionary untuk menyimpan nilai psikogram untuk baris ini
+                psikogram_values = {}
+                
+                # Simpan nilai WA dan GE untuk perhitungan Unnamed: 16
+                wa_value = None
+                ge_value = None
+                
+                # Pertama, kumpulkan nilai WA dan GE
+                for col_idx, col_name in enumerate(self.columns):
+                    item = self.table.item(row, col_idx)
                     value = item.text() if item else ""
-                    row_data[column_name] = value
                     
-                    # Cetak nilai dari kolom psikogram untuk debugging
-                    if column_name in potensi_intelektual_columns or column_name in kepribadian_columns:
-                        print(f"Kolom Psikogram: {column_name} = '{value}'")
-                
-                # Memastikan kolom Unnamed: 13, Unnamed: 14, dan KLASIFIKASI memiliki nilai yang benar
-                # WA GE (Unnamed: 13)
-                try:
-                    if "Verbal" in row_data and "Daya Abstraksi Verbal" in row_data:
-                        verbal_val = float(row_data.get("Verbal", 0))
-                        dav_val = float(row_data.get("Daya Abstraksi Verbal", 0))
-                        wa_ge = (verbal_val + dav_val) / 2
-                        row_data["Unnamed: 13"] = str(wa_ge)
-                        print(f"Menghitung WA GE: {wa_ge}")
-                except (ValueError, TypeError) as e:
-                    print(f"Error menghitung WA GE: {e}")
-
-                # RA ZR (Unnamed: 14)
-                try:
-                    if "Berpikir Praktis" in row_data and "Berpikir Teoritis" in row_data:
-                        bp_val = float(row_data.get("Berpikir Praktis", 0))
-                        bt_val = float(row_data.get("Berpikir Teoritis", 0))
-                        ra_zr = (bp_val + bt_val) / 2
-                        row_data["Unnamed: 14"] = str(ra_zr)
-                        print(f"Menghitung RA ZR: {ra_zr}")
-                except (ValueError, TypeError) as e:
-                    print(f"Error menghitung RA ZR: {e}")
-                        
-                # Pastikan nilai W ada dan benar berdasarkan gambar 1
-                try:
-                    # Tambahkan debug untuk melihat semua kunci di row_data
-                    print("DEBUG - Kunci di row_data:", list(row_data.keys()))
+                    # Debug untuk memastikan kolom terisi
+                    print(f"DEBUG - Menulis nilai '{value}' ke kolom '{col_name}' di baris {target_row}")
                     
-                    # Gunakan nilai W yang sudah dimasukkan pengguna, tidak ada nilai default
-                    if "W" in row_data:
-                        print(f"DEBUG - Nilai W di row_data: '{row_data['W']}'")
-                        
-                        if row_data["W"] and row_data["W"].strip():
-                            # Gunakan nilai asli tanpa konversi ke float
-                            print(f"Menggunakan nilai W dari input: {row_data['W']}")
-                        else:
-                            # Jika tidak ada input, biarkan kosong sebagai string
-                            print(f"Nilai W kosong, membiarkannya tetap kosong")
+                    # Cari kolom yang sesuai di Excel
+                    excel_col = None
+                    
+                    # Bersihkan nama kolom dari spasi di awal dan akhir
+                    col_name_clean = col_name.strip()
+                    
+                    # Penanganan khusus untuk kolom dengan suffix .1
+                    if col_name_clean.endswith('.1'):
+                        # Hapus suffix .1 untuk mencari di Excel
+                        base_name = col_name_clean[:-2]  # Hapus '.1' dari nama
+                        # Cari di col_mapping dengan nama dasar
+                        for header, col in col_mapping.items():
+                            if header.strip() == base_name:
+                                excel_col = col
+                                print(f"DEBUG - Matched UI column '{col_name}' to Excel column '{header}' at position {col}")
+                                break
                     else:
-                        # Jika tidak ada kunci W di row_data, tandai sebagai kosong
-                        row_data["W"] = ""
-                        print(f"Kunci W tidak ditemukan di row_data, mengatur ke kosong")
-                except Exception as e:
-                    print(f"Error mengambil nilai W: {e}")
-                    # Tidak perlu mengatur ke kosong jika sudah ada nilai
-
-                # KLASIFIKASI
-                try:
-                    if "IQ " in row_data:
-                        iq = float(row_data.get("IQ ", 0))
-                        if iq < 79:
-                            iq_klasifikasi = "Rendah"
-                        elif 79 <= iq < 90:
-                            iq_klasifikasi = "Dibawah Rata-Rata"
-                        elif 90 <= iq < 110:
-                            iq_klasifikasi = "Rata-Rata"
-                        elif 110 <= iq < 120:
-                            iq_klasifikasi = "Diatas Rata-Rata"
-                        else:
-                            iq_klasifikasi = "Superior"
+                        # Penanganan normal untuk kolom lain
+                        # Coba cari dengan nama yang sudah dibersihkan
+                        for header, col in col_mapping.items():
+                            if header.strip() == col_name_clean:
+                                excel_col = col
+                                print(f"DEBUG - Matched regular column '{col_name}' to Excel column '{header}' at position {col}")
+                                break
                         
-                        row_data["KLASIFIKASI"] = iq_klasifikasi
-                        print(f"Menghitung KLASIFIKASI: {iq_klasifikasi}")
-                except (ValueError, TypeError) as e:
-                    print(f"Error menghitung KLASIFIKASI: {e}")
-                
-                ui_data.append(row_data)
-            
-            # Tambahkan data baru ke worksheet
-            for i, row_data in enumerate(ui_data):
-                # Target baris adalah baris header + 1 + indeks data
-                target_row = header_row + 1 + i
-                template_idx = (i % len(template_rows)) + 1 if template_rows else 1
-                print(f"Menambahkan data baru di baris {target_row} menggunakan template {template_idx}")
-                
-                # Salin style dari template baris ke baris baru
-                for col_idx in range(1, sheet.max_column + 1):
-                    target_cell = sheet.cell(row=target_row, column=col_idx)
+                        # Khusus untuk Unnamed: 16
+                        if col_name == "Unnamed: 16":
+                            excel_col = unnamed_16_col
                     
-                    # Determine style to use from template rows or default to None
-                    style = None
-                    if template_idx in template_rows and col_idx in template_rows[template_idx]:
-                        style = template_rows[template_idx][col_idx]
-                    else:
-                        # Try to get style from header row if available
-                        header_cell = sheet.cell(row=header_row, column=col_idx)
-                        if header_cell.has_style:
-                            style = {
-                                'font': copy.copy(header_cell.font),
-                                'border': copy.copy(header_cell.border), 
-                                'fill': copy.copy(header_cell.fill),
-                                'number_format': header_cell.number_format,
-                                'alignment': copy.copy(header_cell.alignment)
-                            }
-                    
-                    if not style:
+                    if excel_col is None:
+                        print(f"DEBUG - No match found for UI column '{col_name}' (cleaned: '{col_name_clean}') in Excel")
                         continue
                     
-                    # Terapkan style tapi hindari bold
-                    if style:
-                        try:
-                            # Font - salin semua properti kecuali bold
-                            if hasattr(style['font'], 'name') and style['font'].name:
-                                new_font = copy.copy(style['font'])
-                                # Set bold ke False untuk data (bukan header)
-                                if target_row > header_row:  # Gunakan target_row bukan row_idx
-                                    new_font.bold = False
-                                target_cell.font = new_font
-                            
-                            # Border - pastikan semua border disalin dengan benar
-                            if style['border']:
-                                target_cell.border = copy.copy(style['border'])
-                            
-                            # Fill - pastikan warna latar belakang disalin dengan benar
-                            if style['fill'] and style['fill'].fill_type:
-                                target_cell.fill = copy.copy(style['fill'])
-                            
-                            # Format angka
-                            if style['number_format']:
-                                target_cell.number_format = style['number_format']
-                            
-                            # Alignment - pastikan orientasi teks benar (horizontal)
-                            if style['alignment']:
-                                alignment = copy.copy(style['alignment'])
-                                # Pastikan orientasi selalu horizontal untuk data
-                                if target_row > header_row:
-                                    alignment.text_rotation = 0  # 0 derajat = horizontal
-                                    alignment.vertical = 'center'  # Tengah secara vertikal
-                                target_cell.alignment = alignment
-                        except Exception as e:
-                            print(f"Error applying style: {e}")
-                
-                # Isi data dari UI ke baris target
-                for col_name, value in row_data.items():
-                    col_name_stripped = col_name.strip()
-                    col_idx = None
+                    # Tulis nilai ke Excel
+                    target_cell = sheet.cell(row=target_row, column=excel_col)
                     
-                    # Handling khusus untuk kolom-kolom tertentu berdasarkan nama
-                    if col_name == "W":
-                        # Cari secara langsung kolom W berdasarkan nama kolom
-                        for possible_idx in range(1, sheet.max_column + 1):
-                            cell_val = sheet.cell(row=header_row, column=possible_idx).value
-                            if cell_val == "W":
-                                col_idx = possible_idx
-                                print(f"DEBUG - Menemukan kolom W di Excel pada indeks {col_idx}")
-                                break
-                                
-                        # Jika ditemukan, simpan nilai langsung sebagai string
-                        if col_idx:
-                            print(f"DEBUG - Menyimpan nilai W='{value}' ke Excel di kolom {col_idx}")
-                            target_cell = sheet.cell(row=target_row, column=col_idx)
-                            # Gunakan nilai string langsung, jangan konversi
+                    # Terapkan style dari header (hanya border dan fill)
+                    if excel_col in header_styles:
+                        style = header_styles[excel_col]
+                        target_cell.border = style['border']
+                        if style['fill']:
+                            target_cell.fill = style['fill']
+                    
+                    # Penanganan khusus untuk kolom Unnamed: 16
+                    if col_name == "Unnamed: 16" and wa_col and ge_col:
+                        wa_col_letter = get_column_letter(wa_col)
+                        ge_col_letter = get_column_letter(ge_col)
+                        formula = f"=({wa_col_letter}{target_row}+{ge_col_letter}{target_row})/2"
+                        target_cell.value = formula
+                        print(f"DEBUG - Setting formula for Unnamed: 16: {formula}")
+                    
+                    # Penanganan khusus untuk kolom C (Coding)
+                    elif excel_col == c_coding_col and ae_col:
+                        # Rumus untuk C (Coding)
+                        ae_col_letter = get_column_letter(ae_col)
+                        target_cell.value = f"=IFS({ae_col_letter}{target_row}=1,9,{ae_col_letter}{target_row}=2,8,{ae_col_letter}{target_row}=3,7,{ae_col_letter}{target_row}=4,6,{ae_col_letter}{target_row}=5,5,{ae_col_letter}{target_row}=6,4,{ae_col_letter}{target_row}=7,3,{ae_col_letter}{target_row}=8,2,{ae_col_letter}{target_row}=9,1)"
+                    
+                    # Penanganan khusus untuk kolom psikogram
+                    elif col_name_clean in psikogram_column_mapping:
+                        excel_col = psikogram_column_mapping[col_name_clean]
+                        if excel_col in psikogram_formulas:
+                            formula = psikogram_formulas[excel_col].replace("{row}", str(target_row))
+                            target_cell = sheet.cell(row=target_row, column=excel_col)
+                            target_cell.value = formula
+                            print(f"DEBUG - Setting formula for psikogram column {col_name_clean} at position {excel_col}: {formula}")
+                            psikogram_values[excel_col] = value
+                    
+                    # Penanganan khusus untuk kolom referensi (.1)
+                    elif col_name_clean.endswith('.1'):
+                        base_name = col_name_clean[:-2]
+                        if base_name in psikogram_column_mapping:
+                            psikogram_col = psikogram_column_mapping[base_name]
+                            excel_col = psikogram_col + 13  # Kolom referensi dimulai 13 kolom setelah psikogram
+                            
+                            # Dapatkan huruf kolom untuk referensi
+                            source_col_letter = get_column_letter(psikogram_col)
+                            
+                            # Buat formula referensi ke Sheet3 berdasarkan nilai di kolom psikogram
+                            formula = (
+                                f'=IF({source_col_letter}{target_row}="R",Sheet3!$F$30,'
+                                f'IF({source_col_letter}{target_row}="K",Sheet3!$F$31,'
+                                f'IF({source_col_letter}{target_row}="C",Sheet3!$F$32,'
+                                f'IF({source_col_letter}{target_row}="B",Sheet3!$F$33,'
+                                f'IF({source_col_letter}{target_row}="T",Sheet3!$F$34)))))'
+                            )
+                            
+                            # Sesuaikan referensi sel Sheet3 berdasarkan jenis kolom
+                            sheet3_refs = {
+                                "Logika Berpikir 1": ("$F$30", "$F$31", "$F$32", "$F$33", "$F$34"),
+                                "Daya Analisa 3": ("$F$35", "$F$36", "$F$37", "$F$38", "$F$39"),
+                                "Kemampuan Verbal 2 dam 4": ("$F$45", "$F$46", "$F$47", "$F$48", "$F$49"),
+                                "Kemampuan Numerik 5": ("$F$40", "$F$41", "$F$42", "$F$43", "$F$44"),
+                                "Sistematika Kerja/ C D R": ("$F$60", "$F$61", "$F$62", "$F$63", "$F$64"),
+                                "Orientasi Hasil/ N G": ("$F$50", "$F$51", "$F$52", "$F$53", "$F$54"),
+                                "Fleksibilitas/ T V": ("$F$55", "$F$56", "$F$57", "$F$58", "$F$59"),
+                                "Motivasi Berprestasi/ A": ("$F$65", "$F$66", "$F$67", "$F$68", "$F$69"),
+                                "Kerjasama/ P I": ("$F$70", "$F$71", "$F$72", "$F$73", "$F$74"),
+                                "Keterampilan Interpersonal/ B S": ("$F$75", "$F$76", "$F$77", "$F$78", "$F$79"),
+                                "Stabilitas Emosi/ E PHQ": ("$F$80", "$F$81", "$F$82", "$F$83", "$F$84"),
+                                "Pegembangan Diri/ W": ("$F$85", "$F$86", "$F$87", "$F$88", "$F$89"),
+                                "Mengelola Perubahan/ Z K": ("$F$90", "$F$91", "$F$92", "$F$93", "$F$94")
+                            }
+                            
+                            if base_name in sheet3_refs:
+                                refs = sheet3_refs[base_name]
+                                formula = (
+                                    f'=IF({source_col_letter}{target_row}="R",Sheet3!{refs[0]},'
+                                    f'IF({source_col_letter}{target_row}="K",Sheet3!{refs[1]},'
+                                    f'IF({source_col_letter}{target_row}="C",Sheet3!{refs[2]},'
+                                    f'IF({source_col_letter}{target_row}="B",Sheet3!{refs[3]},'
+                                    f'IF({source_col_letter}{target_row}="T",Sheet3!{refs[4]})))))'
+                                )
+                            
+                            target_cell = sheet.cell(row=target_row, column=excel_col)
+                            target_cell.value = formula
+                            print(f"DEBUG - Setting formula for reference column {col_name_clean} at position {excel_col}: {formula}")
+                    
+                    # Untuk kolom lain, gunakan formula jika ada atau nilai biasa
+                    elif excel_col in formulas:
+                        formula = formulas[excel_col]
+                        formula = formula.replace(str(header_row + 1), str(target_row))
+                        target_cell.value = formula
+                    else:
+                        try:
+                            if value.replace('.', '', 1).replace('-', '', 1).isdigit():
+                                num_val = float(value)
+                                if num_val.is_integer():
+                                    target_cell.value = int(num_val)
+                                else:
+                                    target_cell.value = num_val
+                            else:
+                                target_cell.value = value
+                        except:
                             target_cell.value = value
-                            # Lanjutkan ke kolom berikutnya
-                            continue
-                    elif col_name in special_columns:
-                        col_idx = special_columns[col_name]
-                        print(f"Menggunakan pemetaan khusus untuk kolom '{col_name}' -> {col_idx}")
-                    # Gunakan kolom yang benar untuk IQ dan Flexibilitas Pikir
-                    elif col_name_stripped == "IQ" and iq_column:
-                        col_idx = iq_column
-                    elif col_name_stripped == "Flexibilitas Pikir" and flex_column:
-                        col_idx = flex_column
-                    # Khusus untuk kolom psikogram
-                    elif col_name in psikogram_columns:
-                        col_idx = psikogram_columns[col_name]
-                        print(f"Menggunakan pemetaan psikogram untuk '{col_name}' -> {col_idx}")
-                    # Khusus untuk kolom Unnamed
-                    elif col_name.startswith("Unnamed:"):
-                        # Coba dari unnamed_columns
-                        if col_name in unnamed_columns:
-                            col_idx = unnamed_columns[col_name]
-                        else:
-                            # Coba cari angka di belakang Unnamed:
-                            try:
-                                num = int(col_name.split(":")[-1].strip())
-                                col_idx = num + 1  # Angka kolom Excel biasanya +1 dari indeks
-                                print(f"Memetakan berdasarkan angka: '{col_name}' -> {col_idx}")
-                            except:
-                                pass
-                    elif col_name in col_mapping:
-                        col_idx = col_mapping[col_name]
-                    else:
-                        # Coba cari dengan nama yang sudah di-strip
-                        for name, idx in col_mapping.items():
-                            if name.strip() == col_name_stripped:
-                                col_idx = idx
-                                break
-                    
-                    if not col_idx:
-                        # Khusus untuk kolom dengan akhiran .1 (duplicate columns)
-                        if ".1" in col_name:
-                            base_name = col_name.replace(".1", "")
-                            if base_name in col_mapping:
-                                base_col = col_mapping[base_name]
-                                # Cari kolom setelah kolom dasar dengan nama yang mirip
-                                for idx in range(base_col + 1, sheet.max_column + 1):
-                                    cell_val = sheet.cell(row=header_row, column=idx).value
-                                    if cell_val is not None and base_name in str(cell_val):
-                                        col_idx = idx
-                                        print(f"Memetakan kolom duplikat '{col_name}' ke '{cell_val}' di kolom {col_idx}")
-                                        break
-                        
-                        if not col_idx:
-                            print(f"Tidak dapat menemukan kolom untuk '{col_name}'")
-                            continue
-                    
-                    target_cell = sheet.cell(row=target_row, column=col_idx)
-                    
-                    # Periksa apakah kolom ini memiliki formula
-                    if col_idx in formula_cells:
-                        # Gunakan formula, ganti nilai ref baris jika perlu
-                        try:
-                            formula_info = formula_cells[col_idx]
-                            
-                            if isinstance(formula_info, dict):
-                                # Penanganan formula berdasarkan tipe
-                                if formula_info.get('type') == 'IFS':
-                                    # Untuk formula IFS, kita perlu buat formula yang benar untuk baris ini
-                                    template = formula_info.get('template')
-                                    
-                                    # Ganti {row} dengan nomor baris saat ini
-                                    formula = template.replace("{row}", str(target_row))
-                                    
-                                    # Perbaiki format formula IFS (hilangkan _xlfn. atau @ jika perlu)
-                                    # Gunakan format yang kompatibel dengan Excel
-                                    if '_xlfn.IFS' in formula:
-                                        # Excel modern menggunakan IFS langsung
-                                        formula = formula.replace('_xlfn.IFS', 'IFS')
-                                    
-                                    # Jika ada tanda @ di awal formula, hapus
-                                    if formula.startswith('=@'):
-                                        formula = '=' + formula[2:]
-                                    
-                                    # Penanganan khusus untuk kolom deskripsi psikogram (kolom 55-66)
-                                    # Kolom ini harus menggunakan nilai langsung jika sudah terisi daripada formula
-                                    if col_idx >= 55 and col_idx <= 66 and value and str(value).strip():
-                                        target_cell.value = value  # Gunakan nilai langsung dari UI
-                                        print(f"Formula IFS untuk kolom {col_idx}: {formula}")
-                                    else:
-                                        # Gunakan formula untuk kolom lain
-                                        target_cell.value = formula
-                                        print(f"Formula IFS untuk kolom {col_idx}: {formula}")
-                                        
-                                else:
-                                    # Formula normal
-                                    formula = formula_info.get('formula', '')
-                                    # Perbarui referensi baris
-                                    import re
-                                    
-                                    # Cari referensi sel dan perbarui nomornya
-                                    def update_cell_reference(match):
-                                        ref = match.group(0)
-                                        col_part = ''.join(c for c in ref if c.isalpha())
-                                        row_part = ''.join(c for c in ref if c.isdigit())
-                                        if row_part == str(header_row + 1):
-                                            return col_part + str(target_row)
-                                        return ref
-                                    
-                                    formula = re.sub(r'[A-Z]+\d+', update_cell_reference, formula)
-                                    target_cell.value = formula
-                                    print(f"Formula normal untuk kolom {col_idx}: {formula}")
-                            else:
-                                # Format lama - jika formula_cells adalah string langsung bukan dict
-                                formula = formula_info
-                                formula = formula.replace(str(header_row + 1), str(target_row))
-                                
-                                # Beberapa formula Excel mungkin bermasalah (#NAME?), coba tampilkan hasil langsung
-                                if col_idx in formula_results:
-                                    # Berikan nilai langsung daripada formula
-                                    target_cell.value = formula_results[col_idx]
-                                    print(f"Menggunakan hasil evaluasi {formula_results[col_idx]} untuk kolom {col_idx} daripada formula")
-                                else:
-                                    # Gunakan formula jika tidak ada hasil evaluasi
-                                    target_cell.value = formula
-                                    print(f"Menetapkan formula format lama ke baris {target_row}, kolom {col_idx}: {formula}")
-                                
-                        except Exception as e:
-                            print(f"Error applying formula to row {target_row}, column {col_idx}: {e}")
-                            # Jika gagal menerapkan formula, gunakan nilai biasa
-                            # Pastikan tidak ada #N/A dengan memastikan nilai tidak kosong
-                            if value and value.strip():
-                                target_cell.value = value
-                            else:
-                                target_cell.value = 0  # Default ke 0 jika kosong
-                    else:
-                        # Periksa kategori kolom untuk pemrosesan khusus
-                        is_psikogram_column = col_name in potensi_intelektual_columns or col_name in kepribadian_columns
-                        
-                        # Handle nilai khusus untuk mencegah #N/A
-                        if not value or value.strip() == "" or value.strip().lower() == "#n/a":
-                            if col_name.startswith("Unnamed:"):
-                                # Untuk kolom unnamed, gunakan nilai asli dari input jika ada
-                                # Jika tidak ada, gunakan 0 sebagai default
-                                try:
-                                    # Coba konversi ke nilai numerik jika mungkin
-                                    if value and value.strip():
-                                        numeric_value = float(value)
-                                        if numeric_value == int(numeric_value):
-                                            target_cell.value = int(numeric_value)
-                                        else:
-                                            target_cell.value = numeric_value
-                                    else:
-                                        target_cell.value = 0
-                                except (ValueError, TypeError):
-                                    # Jika tidak bisa dikonversi ke angka, gunakan nilai asli
-                                    target_cell.value = value if value else 0
-                            elif is_psikogram_column:
-                                # Untuk kolom psikogram yang kosong, gunakan string kosong
-                                target_cell.value = ""
-                                print(f"Menyimpan nilai kosong untuk psikogram di kolom {col_idx} ('{col_name}')")
-                            else:
-                                # Untuk kolom lain, kosongkan saja
-                                target_cell.value = ""
-                        else:
-                            # Kolom Unnamed yang sudah memiliki nilai
-                            if col_name.startswith("Unnamed:") or col_idx in [14, 15]:
-                                try:
-                                    # Coba konversi ke angka jika mungkin
-                                    numeric_value = float(value)
-                                    if numeric_value == int(numeric_value):
-                                        target_cell.value = int(numeric_value)
-                                    else:
-                                        target_cell.value = numeric_value
-                                except (ValueError, TypeError):
-                                    # Jika tidak bisa dikonversi, gunakan nilai asli
-                                    target_cell.value = value
-                            # Kolom Psikogram
-                            elif is_psikogram_column:
-                                # Cek apakah ada hasil formula yang sudah dievaluasi
-                                if col_idx in formula_results:
-                                    # Kolom 47 (Daya Ingat/ME), 50-54 dan 59-66 (kolom referensi ke Sheet2) harus selalu menggunakan formula, bukan hasil evaluasi
-                                    if (col_idx == 47 or (col_idx >= 50 and col_idx <= 66)) and col_idx in formula_cells:
-                                        # Ambil formula dari formula_cells
-                                        try:
-                                            formula_info = formula_cells[col_idx]
-                                            if isinstance(formula_info, dict):
-                                                if formula_info.get('type') == 'IFS':
-                                                    template = formula_info.get('template')
-                                                    
-                                                    # Ganti {row} dengan nomor baris saat ini
-                                                    formula = template.replace("{row}", str(target_row))
-                                                    
-                                                    # Perbaiki format formula IFS (hilangkan _xlfn. atau @ jika perlu)
-                                                    if '_xlfn.IFS' in formula:
-                                                        formula = formula.replace('_xlfn.IFS', 'IFS')
-                                                    
-                                                    # Jika ada tanda @ di awal formula, hapus
-                                                    if formula.startswith('=@'):
-                                                        formula = '=' + formula[2:]
-                                                    
-                                                    target_cell.value = formula
-                                                    print(f"Menetapkan formula IFS ke baris {target_row}, kolom {col_idx}: {formula}")
-                                                elif formula_info.get('type') == 'normal':
-                                                    formula = formula_info.get('formula', '')
-                                                    # Perbarui referensi baris
-                                                    def update_cell_reference(match):
-                                                        ref = match.group(0)
-                                                        col_part = ''.join(c for c in ref if c.isalpha())
-                                                        row_part = ''.join(c for c in ref if c.isdigit())
-                                                        if row_part == str(header_row + 1):
-                                                            return col_part + str(target_row)
-                                                        return ref
-                                                    
-                                                    formula = re.sub(r'[A-Z]+\d+', update_cell_reference, formula)
-                                                    target_cell.value = formula
-                                                    print(f"Menetapkan formula normal ke baris {target_row}, kolom {col_idx}: {formula}")
-                                            else:
-                                                # Jika bukan formula terstruktur, gunakan nilai default
-                                                target_cell.value = value.strip() or "C"  # Default ke "C" jika kosong
-                                                print(f"Menggunakan nilai default untuk kolom {col_idx}: {target_cell.value}")
-                                        except Exception as e:
-                                            print(f"Error applying formula for column {col_idx}: {e}")
-                                            target_cell.value = value.strip() or formula_results.get(col_idx, "")
-                                    else:
-                                        target_cell.value = formula_results[col_idx]
-                                        print(f"Menggunakan hasil evaluasi {formula_results[col_idx]} untuk kolom {col_idx}")
-                                else:
-                                    # Jika tidak ada hasil evaluasi, gunakan nilai inputan
-                                    target_cell.value = value.strip()
-                                    print(f"Menyimpan nilai psikogram '{value.strip()}' ke kolom {col_idx} ('{col_name}')")
-                            # Konversi nilai ke integer jika memungkinkan
-                            elif value and value.replace('.', '', 1).replace('-', '', 1).isdigit():
-                                try:
-                                    # Cek jika ini kolom PAPIKOSTICK (kolom 16-36)
-                                    if col_idx >= 16 and col_idx <= 36:
-                                        # Untuk kolom PAPIKOSTICK, simpan nilai seperti apa adanya sebagai string
-                                        print(f"DEBUG - Menyimpan nilai PAPIKOSTICK '{value}' di kolom {col_idx} sebagai integer jika memungkinkan")
-                                        try:
-                                            # Coba konversi ke integer jika nilai bulat
-                                            num_value = float(value)
-                                            if num_value.is_integer():
-                                                target_cell.value = int(num_value)
-                                            else:
-                                                target_cell.value = num_value
-                                        except (ValueError, TypeError):
-                                            # Jika tidak bisa dikonversi, simpan sebagai string
-                                            target_cell.value = value
-                                    # Untuk kolom W, simpan sebagai string
-                                    elif col_name == "W":
-                                        print(f"DEBUG - Menyimpan nilai W '{value}' di kolom {col_idx} sebagai integer jika memungkinkan")
-                                        try:
-                                            # Coba konversi ke integer jika nilai bulat
-                                            num_value = float(value)
-                                            if num_value.is_integer():
-                                                target_cell.value = int(num_value)
-                                            else:
-                                                target_cell.value = num_value
-                                        except (ValueError, TypeError):
-                                            # Jika tidak bisa dikonversi, simpan sebagai string
-                                            target_cell.value = value
-                                    # Untuk kolom C (Coding), simpan sebagai string
-                                    elif col_name == "C (Coding)":
-                                        print(f"DEBUG - Menyimpan nilai C (Coding) '{value}' di kolom {col_idx} sebagai integer jika memungkinkan")
-                                        try:
-                                            # Coba konversi ke integer jika nilai bulat
-                                            num_value = float(value)
-                                            if num_value.is_integer():
-                                                target_cell.value = int(num_value)
-                                            else:
-                                                target_cell.value = num_value
-                                        except (ValueError, TypeError):
-                                            # Jika tidak bisa dikonversi, simpan sebagai string
-                                            target_cell.value = value
-                                    # Untuk kolom lain, konversi ke angka
-                                    else:
-                                        # Coba konversi ke integer jika nilai merupakan angka bulat
-                                        try:
-                                            if float(value).is_integer():
-                                                target_cell.value = int(float(value))
-                                            else:
-                                                # Jika ada desimal, tetap gunakan float
-                                                target_cell.value = float(value)
-                                        except ValueError:
-                                            target_cell.value = value
-                                except ValueError:
-                                    target_cell.value = value
-                            else:
-                                target_cell.value = value
-            
-            # Mengembalikan merged cells
-            # Perlu disesuaikan dengan jumlah baris baru
-            row_offset = len(data_rows_to_delete) - len(ui_data)
-            successfully_merged = 0
-            for original_range in merged_ranges:
-                try:
-                    # Cek apakah range berada di atas header (tetap tidak berubah)
-                    if original_range.min_row <= header_row:
-                        sheet.merge_cells(str(original_range))
-                        successfully_merged += 1
-                    else:
-                        # Sesuaikan range untuk baris di bawah header
-                        # Gunakan offset antara data lama dan baru
-                        if row_offset != 0:
-                            new_min_row = original_range.min_row - row_offset
-                            new_max_row = original_range.max_row - row_offset
-                            
-                            # Pastikan baris tetap berada dalam rentang yang valid
-                            if new_max_row > header_row:
-                                min_col_letter = get_column_letter(original_range.min_col)
-                                max_col_letter = get_column_letter(original_range.max_col)
-                                new_range = f"{min_col_letter}{new_min_row}:{max_col_letter}{new_max_row}"
-                                
-                                try:
-                                    sheet.merge_cells(new_range)
-                                    successfully_merged += 1
-                                    print(f"Merged cells: {new_range}")
-                                except Exception as e:
-                                    print(f"Gagal merge cells {new_range}: {e}")
-                except Exception as e:
-                    print(f"Error processing merged range: {e}")
-                    
-            print(f"Berhasil mengembalikan {successfully_merged} dari {len(merged_ranges)} merged cells")
-            
-            # Sesuaikan lebar kolom agar sama dengan file asli
-            for i, column in enumerate(sheet.columns, 1):
-                try:
-                    # Simpan lebar kolom asli
-                    col_letter = get_column_letter(i)
-                    if col_letter in sheet.column_dimensions:
-                        width = sheet.column_dimensions[col_letter].width
-                        if width is not None:
-                            sheet.column_dimensions[col_letter].width = width
-                except Exception as e:
-                    print(f"Error setting column width for column {i}: {e}")
-            
+
+                # Pastikan nilai benar-benar ditulis
+                print(f"DEBUG - Nilai yang ditulis ke Excel: '{target_cell.value}' di sel {get_column_letter(excel_col)}{target_row}")
+
             # Sesuaikan tinggi baris
-            for row_idx, height in row_heights.items():
-                try:
-                    if row_idx <= header_row:  # Baris header ke atas
-                        sheet.row_dimensions[row_idx].height = height
-                    else:  # Baris data
-                        # Untuk baris data, gunakan tinggi default yang sama
-                        for data_row_idx in range(header_row + 1, header_row + 1 + len(ui_data)):
-                            sheet.row_dimensions[data_row_idx].height = default_row_height
-                except Exception as e:
-                    print(f"Error setting row height for row {row_idx}: {e}")
-            
-            # Buat temporary file untuk save dan copy
-            temp_file = os.path.join(dir_path, f"temp_{timestamp}.xlsx")
-            
-            # Simpan ke file sementara dulu
+            for row in range(header_row + 1, sheet.max_row + 1):
+                sheet.row_dimensions[row].height = 15
+
             try:
-                # Terapkan formula-formula langsung ke sheet
-                self.set_formulas_direct(sheet, header_row)
-                
-                wb.save(temp_file)
+                # Simpan workbook
+                wb.save(self.excel_file_path)
                 wb.close()
-                print(f"Berhasil menyimpan ke file sementara: {temp_file}")
+                QMessageBox.information(self, "Sukses", f"Data berhasil disimpan ke {self.excel_file_path}")
+                print(f"DEBUG - Workbook saved successfully to {self.excel_file_path}")
+            except Exception as e:
+                print(f"ERROR - Failed to save workbook: {e}")
+                QMessageBox.critical(self, "Error", f"Gagal menyimpan file Excel: {e}")
                 
-                # Tutup workbook asli jika masih terbuka
-                import gc
-                gc.collect()
-                
-                # Salin file sementara ke file asli
-                shutil.copy2(temp_file, original_file)
-                
-                # Hapus file sementara
+                # Coba kembalikan dari backup jika ada error
                 try:
-                    os.remove(temp_file)
-                except:
-                    pass
-                
-                print(f"Berhasil menyimpan ke file asli: {original_file}")
-                
-                # Tampilkan dialog informasi setelah berhasil menyimpan
-                QMessageBox.information(self, "Sukses", f"Data berhasil disimpan ke {original_file}")
-            except Exception as save_error:
-                print(f"Error saving to temp file: {save_error}")
-                raise save_error
+                    latest_backup = max(
+                        [f for f in os.listdir(backup_dir) if f.startswith("backup_") and f.endswith(os.path.basename(self.excel_file_path))],
+                        key=lambda x: os.path.getmtime(os.path.join(backup_dir, x))
+                    )
+                    backup_path = os.path.join(backup_dir, latest_backup)
+                    shutil.copy2(backup_path, self.excel_file_path)
+                    QMessageBox.information(self, "Pemulihan", f"File dikembalikan dari backup: {latest_backup}")
+                except Exception as restore_error:
+                    print(f"Error restoring from backup: {restore_error}")
             
         except Exception as e:
             print(f"Error saving to Excel: {e}")
@@ -2801,20 +2026,18 @@ class ExcelViewerApp(QWidget):
             traceback.print_exc()
             QMessageBox.critical(self, "Error", f"Gagal menyimpan file Excel: {e}")
             
-            # Jika terjadi error, coba kembalikan dari backup
+            # Coba kembalikan dari backup jika ada error
             try:
                 latest_backup = max(
                     [f for f in os.listdir(backup_dir) if f.startswith("backup_") and f.endswith(os.path.basename(self.excel_file_path))],
                     key=lambda x: os.path.getmtime(os.path.join(backup_dir, x))
                 )
                 backup_path = os.path.join(backup_dir, latest_backup)
-                restore_path = self.excel_file_path
-                
-                # Coba kembalikan file
-                shutil.copy2(backup_path, restore_path)
+                shutil.copy2(backup_path, self.excel_file_path)
                 QMessageBox.information(self, "Pemulihan", f"File dikembalikan dari backup: {latest_backup}")
             except Exception as restore_error:
                 print(f"Error restoring from backup: {restore_error}")
+
     def get_column_index(self, column_name):
         # Search for exact match first
         try:
@@ -4039,208 +3262,208 @@ class ExcelViewerApp(QWidget):
             QMessageBox.critical(self, "Error", f"Error saving PDF: {e}")
             print(f"Error saving PDF: {e}")
     
-    def save_pdf_file(self, pdf_data, file_name):
-        try:
-            with open(file_name, 'wb') as f:
-                f.write(pdf_data)
-        except Exception as e:
-            print(f"Error writing PDF file: {e}")
+    # def save_pdf_file(self, pdf_data, file_name):
+    #     try:
+    #         with open(file_name, 'wb') as f:
+    #             f.write(pdf_data)
+    #     except Exception as e:
+    #         print(f"Error writing PDF file: {e}")
 
-    def generate_common_formulas(self, row_number):
-        """
-        Menghasilkan formula-formula umum dengan nomor baris yang sesuai.
-        """
-        formulas = {
-            'SDR/SDRI': f"=IF(F{row_number}=\"P\",\"Sdri.\",\"Sdr.\")",
-            'Keterangan PHQ': f"=@IFS(I{row_number}<5,\"Tidak ada\",I{row_number}<10,\"Ringan\",I{row_number}<15,\"Sedang\",I{row_number}<20,\"Cukup Berat\",I{row_number}<28,\"Parah\")",
-            'IQ ': f"=SUM(L{row_number}:P{row_number})/5",
-            'Unnamed: 16': f"=(M{row_number}+O{row_number})/2",
-            'KLASIFIKASI': f"=@IFS(K{row_number}<79,\"Rendah\",K{row_number}<90,\"Dibawah Rata-Rata\",K{row_number}<110,\"Rata-Rata\",K{row_number}<120,\"Diatas Rata-Rata\",K{row_number}>119,\"Superior\")",
-            'C (Coding)': f"=@IFS(AE{row_number}=1,9,AE{row_number}=2,8,AE{row_number}=3,7,AE{row_number}=4,6,AE{row_number}=5,5,AE{row_number}=6,4,AE{row_number}=7,3,AE{row_number}=8,2,AE{row_number}=9,1)",
-            'NG': f"=(S{row_number}+T{row_number})/2",
-            'CDR': f"=(AE{row_number}+AG{row_number}+AH{row_number})/3",
-            'TV': f"=(Y{row_number}+Z{row_number})/2",
-            'PI': f"=(W{row_number}+X{row_number})/2",
-            'BS': f"=(AA{row_number}+AB{row_number})/2",
-            'ZK': f"=(AI{row_number}+AK{row_number})/2",
-        }
-        return formulas
-    def set_formulas_direct(self, sheet, header_row):
-        """
-        Fungsi untuk mengatur formula Excel secara langsung pada sheet
-        """
-        try:
-            # Looping untuk setiap baris data (di bawah header)
-            for row_idx in range(header_row + 1, sheet.max_row + 1):
-                # Formula untuk SDR/SDRI
-                sdr_sdri_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("SDR/SDRI"))
-                sdr_sdri_cell.value = f'=IF(F{row_idx}="P","Sdri.","Sdr.")'
+    # def generate_common_formulas(self, row_number):
+    #     """
+    #     Menghasilkan formula-formula umum dengan nomor baris yang sesuai.
+    #     """
+    #     formulas = {
+    #         'SDR/SDRI': f"=IF(F{row_number}=\"P\",\"Sdri.\",\"Sdr.\")",
+    #         'Keterangan PHQ': f"=@IFS(I{row_number}<5,\"Tidak ada\",I{row_number}<10,\"Ringan\",I{row_number}<15,\"Sedang\",I{row_number}<20,\"Cukup Berat\",I{row_number}<28,\"Parah\")",
+    #         'IQ ': f"=SUM(L{row_number}:P{row_number})/5",
+    #         'Unnamed: 16': f"=(M{row_number}+O{row_number})/2",
+    #         'KLASIFIKASI': f"=@IFS(K{row_number}<79,\"Rendah\",K{row_number}<90,\"Dibawah Rata-Rata\",K{row_number}<110,\"Rata-Rata\",K{row_number}<120,\"Diatas Rata-Rata\",K{row_number}>119,\"Superior\")",
+    #         'C (Coding)': f"=@IFS(AE{row_number}=1,9,AE{row_number}=2,8,AE{row_number}=3,7,AE{row_number}=4,6,AE{row_number}=5,5,AE{row_number}=6,4,AE{row_number}=7,3,AE{row_number}=8,2,AE{row_number}=9,1)",
+    #         'NG': f"=(S{row_number}+T{row_number})/2",
+    #         'CDR': f"=(AE{row_number}+AG{row_number}+AH{row_number})/3",
+    #         'TV': f"=(Y{row_number}+Z{row_number})/2",
+    #         'PI': f"=(W{row_number}+X{row_number})/2",
+    #         'BS': f"=(AA{row_number}+AB{row_number})/2",
+    #         'ZK': f"=(AI{row_number}+AK{row_number})/2",
+    #     }
+    #     return formulas
+    # def set_formulas_direct(self, sheet, header_row):
+    #     """
+    #     Fungsi untuk mengatur formula Excel secara langsung pada sheet
+    #     """
+    #     try:
+    #         # Looping untuk setiap baris data (di bawah header)
+    #         for row_idx in range(header_row + 1, sheet.max_row + 1):
+    #             # Formula untuk SDR/SDRI
+    #             sdr_sdri_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("SDR/SDRI"))
+    #             sdr_sdri_cell.value = f'=IF(F{row_idx}="P","Sdri.","Sdr.")'
                 
-                # Formula untuk Keterangan PHQ
-                ket_phq_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("Keterangan PHQ"))
-                ket_phq_cell.value = f'=IFS(I{row_idx}<5,"Tidak ada",I{row_idx}<10,"Ringan",I{row_idx}<15,"Sedang",I{row_idx}<20,"Cukup Berat",I{row_idx}<28,"Parah")'
+    #             # Formula untuk Keterangan PHQ
+    #             ket_phq_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("Keterangan PHQ"))
+    #             ket_phq_cell.value = f'=IFS(I{row_idx}<5,"Tidak ada",I{row_idx}<10,"Ringan",I{row_idx}<15,"Sedang",I{row_idx}<20,"Cukup Berat",I{row_idx}<28,"Parah")'
                 
-                # Formula untuk IQ
-                iq_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("IQ "))
-                iq_cell.value = f'=SUM(L{row_idx}:P{row_idx})/5'
+    #             # Formula untuk IQ
+    #             iq_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("IQ "))
+    #             iq_cell.value = f'=SUM(L{row_idx}:P{row_idx})/5'
                 
-                # Formula untuk Unnamed: 16
-                unnamed_16_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("Unnamed: 16"))
-                unnamed_16_cell.value = f'=(M{row_idx}+O{row_idx})/2'
+    #             # Formula untuk Unnamed: 16
+    #             unnamed_16_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("Unnamed: 16"))
+    #             unnamed_16_cell.value = f'=(M{row_idx}+O{row_idx})/2'
                 
-                # Formula untuk KLASIFIKASI
-                klasifikasi_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("KLASIFIKASI"))
-                klasifikasi_cell.value = f'=IFS(K{row_idx}<79,"Rendah",K{row_idx}<90,"Dibawah Rata-Rata",K{row_idx}<110,"Rata-Rata",K{row_idx}<120,"Diatas Rata-Rata",K{row_idx}>119,"Superior")'
+    #             # Formula untuk KLASIFIKASI
+    #             klasifikasi_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("KLASIFIKASI"))
+    #             klasifikasi_cell.value = f'=IFS(K{row_idx}<79,"Rendah",K{row_idx}<90,"Dibawah Rata-Rata",K{row_idx}<110,"Rata-Rata",K{row_idx}<120,"Diatas Rata-Rata",K{row_idx}>119,"Superior")'
                 
-                # Formula untuk C (Coding)
-                c_coding_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("C (Coding)"))
-                c_coding_cell.value = f'=IFS(AE{row_idx}=1,9,AE{row_idx}=2,8,AE{row_idx}=3,7,AE{row_idx}=4,6,AE{row_idx}=5,5,AE{row_idx}=6,4,AE{row_idx}=7,3,AE{row_idx}=8,2,AE{row_idx}=9,1)'
+    #             # Formula untuk C (Coding)
+    #             c_coding_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("C (Coding)"))
+    #             c_coding_cell.value = f'=IFS(AE{row_idx}=1,9,AE{row_idx}=2,8,AE{row_idx}=3,7,AE{row_idx}=4,6,AE{row_idx}=5,5,AE{row_idx}=6,4,AE{row_idx}=7,3,AE{row_idx}=8,2,AE{row_idx}=9,1)'
                 
-                # Formula untuk NG
-                ng_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("NG"))
-                ng_cell.value = f'=(S{row_idx}+T{row_idx})/2'
+    #             # Formula untuk NG
+    #             ng_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("NG"))
+    #             ng_cell.value = f'=(S{row_idx}+T{row_idx})/2'
                 
-                # Formula untuk CDR
-                cdr_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("CDR"))
-                cdr_cell.value = f'=(AE{row_idx}+AG{row_idx}+AH{row_idx})/3'
+    #             # Formula untuk CDR
+    #             cdr_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("CDR"))
+    #             cdr_cell.value = f'=(AE{row_idx}+AG{row_idx}+AH{row_idx})/3'
                 
-                # Formula untuk TV
-                tv_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("TV"))
-                tv_cell.value = f'=(Y{row_idx}+Z{row_idx})/2'
+    #             # Formula untuk TV
+    #             tv_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("TV"))
+    #             tv_cell.value = f'=(Y{row_idx}+Z{row_idx})/2'
                 
-                # Formula untuk PI
-                pi_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("PI"))
-                pi_cell.value = f'=(W{row_idx}+X{row_idx})/2'
+    #             # Formula untuk PI
+    #             pi_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("PI"))
+    #             pi_cell.value = f'=(W{row_idx}+X{row_idx})/2'
                 
-                # Formula untuk BS
-                bs_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("BS"))
-                bs_cell.value = f'=(AA{row_idx}+AB{row_idx})/2'
+    #             # Formula untuk BS
+    #             bs_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("BS"))
+    #             bs_cell.value = f'=(AA{row_idx}+AB{row_idx})/2'
                 
-                # Formula untuk ZK
-                zk_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("ZK"))
-                zk_cell.value = f'=(AI{row_idx}+AK{row_idx})/2'
+    #             # Formula untuk ZK
+    #             zk_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("ZK"))
+    #             zk_cell.value = f'=(AI{row_idx}+AK{row_idx})/2'
 
-                # Formula untuk Logika Berpikir 1
-                logika_cell = sheet.cell(row=row_idx, column=45)
-                logika_cell.value = f'=IF(L{row_idx}<80,"R",IF(L{row_idx}<100,"K",IF(L{row_idx}<120,"C",IF(L{row_idx}<140,"B","T"))))'
+    #             # Formula untuk Logika Berpikir 1
+    #             logika_cell = sheet.cell(row=row_idx, column=45)
+    #             logika_cell.value = f'=IF(L{row_idx}<80,"R",IF(L{row_idx}<100,"K",IF(L{row_idx}<120,"C",IF(L{row_idx}<140,"B","T"))))'
 
-                # Formula untuk Daya Analisa 3
-                analisa_cell = sheet.cell(row=row_idx, column=46)
-                analisa_cell.value = f'=IF(M{row_idx}<80,"R",IF(M{row_idx}<100,"K",IF(M{row_idx}<120,"C",IF(M{row_idx}<140,"B","T"))))'
+    #             # Formula untuk Daya Analisa 3
+    #             analisa_cell = sheet.cell(row=row_idx, column=46)
+    #             analisa_cell.value = f'=IF(M{row_idx}<80,"R",IF(M{row_idx}<100,"K",IF(M{row_idx}<120,"C",IF(M{row_idx}<140,"B","T"))))'
 
-                # Formula untuk Kemampuan Verbal 2 dam 4
-                verbal_cell = sheet.cell(row=row_idx, column=47)
+    #             # Formula untuk Kemampuan Verbal 2 dam 4
+    #             verbal_cell = sheet.cell(row=row_idx, column=47)
                 
-                # Formulasi baru untuk kolom 45-57
-                # Column 45: Logika Berpikir 1
-                try:
-                    logika_cell = sheet.cell(row=row_idx, column=45)
-                    logika_cell.value = f'=IF(L{row_idx}<80,"R",IF(L{row_idx}<100,"K",IF(L{row_idx}<120,"C",IF(L{row_idx}<140,"B","T"))))'
-                except Exception as e:
-                    print(f"Error setting Logika Berpikir formula: {e}")
+    #             # Formulasi baru untuk kolom 45-57
+    #             # Column 45: Logika Berpikir 1
+    #             try:
+    #                 logika_cell = sheet.cell(row=row_idx, column=45)
+    #                 logika_cell.value = f'=IF(L{row_idx}<80,"R",IF(L{row_idx}<100,"K",IF(L{row_idx}<120,"C",IF(L{row_idx}<140,"B","T"))))'
+    #             except Exception as e:
+    #                 print(f"Error setting Logika Berpikir formula: {e}")
                 
-                # Column 46: Daya Analisa 3
-                try:
-                    daya_analisa_cell = sheet.cell(row=row_idx, column=46)
-                    daya_analisa_cell.value = f'=IF(M{row_idx}<80,"R",IF(M{row_idx}<100,"K",IF(M{row_idx}<120,"C",IF(M{row_idx}<140,"B","T"))))'
-                except Exception as e:
-                    print(f"Error setting Daya Analisa formula: {e}")
+    #             # Column 46: Daya Analisa 3
+    #             try:
+    #                 daya_analisa_cell = sheet.cell(row=row_idx, column=46)
+    #                 daya_analisa_cell.value = f'=IF(M{row_idx}<80,"R",IF(M{row_idx}<100,"K",IF(M{row_idx}<120,"C",IF(M{row_idx}<140,"B","T"))))'
+    #             except Exception as e:
+    #                 print(f"Error setting Daya Analisa formula: {e}")
                 
-                # Column 47: Kemampuan Verbal 2 dam 4
-                try:
-                    verbal_cell = sheet.cell(row=row_idx, column=47)
-                    verbal_cell.value = f'=IF(O{row_idx}<80,"R",IF(O{row_idx}<100,"K",IF(O{row_idx}<120,"C",IF(O{row_idx}<140,"B","T"))))'
-                except Exception as e:
-                    print(f"Error setting Kemampuan Verbal formula: {e}")
+    #             # Column 47: Kemampuan Verbal 2 dam 4
+    #             try:
+    #                 verbal_cell = sheet.cell(row=row_idx, column=47)
+    #                 verbal_cell.value = f'=IF(O{row_idx}<80,"R",IF(O{row_idx}<100,"K",IF(O{row_idx}<120,"C",IF(O{row_idx}<140,"B","T"))))'
+    #             except Exception as e:
+    #                 print(f"Error setting Kemampuan Verbal formula: {e}")
                 
-                # Column 48: Kemampuan Numerik 5
-                try:
-                    numerik_cell = sheet.cell(row=row_idx, column=48)
-                    numerik_cell.value = f'=IF(N{row_idx}<80,"R",IF(N{row_idx}<100,"K",IF(N{row_idx}<120,"C",IF(N{row_idx}<140,"B","T"))))'
-                except Exception as e:
-                    print(f"Error setting Kemampuan Numerik formula: {e}")
+    #             # Column 48: Kemampuan Numerik 5
+    #             try:
+    #                 numerik_cell = sheet.cell(row=row_idx, column=48)
+    #                 numerik_cell.value = f'=IF(N{row_idx}<80,"R",IF(N{row_idx}<100,"K",IF(N{row_idx}<120,"C",IF(N{row_idx}<140,"B","T"))))'
+    #             except Exception as e:
+    #                 print(f"Error setting Kemampuan Numerik formula: {e}")
                 
-                # Column 49: Sistematika Kerja/ C D R
-                try:
-                    sistematika_cell = sheet.cell(row=row_idx, column=49)
-                    sistematika_cell.value = f'=IFS(AO{row_idx}<2,"R",AO{row_idx}<4,"K",AO{row_idx}<6,"C",AO{row_idx}<9,"B",AO{row_idx}=9,"T")'
-                except Exception as e:
-                    print(f"Error setting Sistematika Kerja formula: {e}")
+    #             # Column 49: Sistematika Kerja/ C D R
+    #             try:
+    #                 sistematika_cell = sheet.cell(row=row_idx, column=49)
+    #                 sistematika_cell.value = f'=IFS(AO{row_idx}<2,"R",AO{row_idx}<4,"K",AO{row_idx}<6,"C",AO{row_idx}<9,"B",AO{row_idx}=9,"T")'
+    #             except Exception as e:
+    #                 print(f"Error setting Sistematika Kerja formula: {e}")
                 
-                # Column 50: Orientasi Hasil/ N G
-                try:
-                    orientasi_cell = sheet.cell(row=row_idx, column=50)
-                    orientasi_cell.value = f'=IFS(AN{row_idx}<2,"R",AN{row_idx}<4,"K",AN{row_idx}<6,"C",AN{row_idx}<9,"B",AN{row_idx}=9,"T")'
-                except Exception as e:
-                    print(f"Error setting Orientasi Hasil formula: {e}")
+    #             # Column 50: Orientasi Hasil/ N G
+    #             try:
+    #                 orientasi_cell = sheet.cell(row=row_idx, column=50)
+    #                 orientasi_cell.value = f'=IFS(AN{row_idx}<2,"R",AN{row_idx}<4,"K",AN{row_idx}<6,"C",AN{row_idx}<9,"B",AN{row_idx}=9,"T")'
+    #             except Exception as e:
+    #                 print(f"Error setting Orientasi Hasil formula: {e}")
                 
-                # Column 51: Fleksibilitas/ T V
-                try:
-                    fleksibilitas_cell = sheet.cell(row=row_idx, column=51)
-                    fleksibilitas_cell.value = f'=IFS(AP{row_idx}<2,"R",AP{row_idx}<4,"K",AP{row_idx}<6,"C",AP{row_idx}<9,"B",AP{row_idx}=9,"T")'
-                except Exception as e:
-                    print(f"Error setting Fleksibilitas formula: {e}")
+    #             # Column 51: Fleksibilitas/ T V
+    #             try:
+    #                 fleksibilitas_cell = sheet.cell(row=row_idx, column=51)
+    #                 fleksibilitas_cell.value = f'=IFS(AP{row_idx}<2,"R",AP{row_idx}<4,"K",AP{row_idx}<6,"C",AP{row_idx}<9,"B",AP{row_idx}=9,"T")'
+    #             except Exception as e:
+    #                 print(f"Error setting Fleksibilitas formula: {e}")
                 
-                # Column 52: Motivasi Berprestasi/ A
-                try:
-                    motivasi_cell = sheet.cell(row=row_idx, column=52)
-                    motivasi_cell.value = f'=IFS(U{row_idx}<2,"R",U{row_idx}<4,"K",U{row_idx}<6,"C",U{row_idx}<9,"B",U{row_idx}=9,"T")'
-                except Exception as e:
-                    print(f"Error setting Motivasi Berprestasi formula: {e}")
+    #             # Column 52: Motivasi Berprestasi/ A
+    #             try:
+    #                 motivasi_cell = sheet.cell(row=row_idx, column=52)
+    #                 motivasi_cell.value = f'=IFS(U{row_idx}<2,"R",U{row_idx}<4,"K",U{row_idx}<6,"C",U{row_idx}<9,"B",U{row_idx}=9,"T")'
+    #             except Exception as e:
+    #                 print(f"Error setting Motivasi Berprestasi formula: {e}")
                 
-                # Column 53: Kerjasama/ P I
-                try:
-                    kerjasama_cell = sheet.cell(row=row_idx, column=53)
-                    kerjasama_cell.value = f'=IFS(AQ{row_idx}<2,"R",AQ{row_idx}<4,"K",AQ{row_idx}<6,"C",AQ{row_idx}<9,"B",AQ{row_idx}=9,"T")'
-                except Exception as e:
-                    print(f"Error setting Kerjasama formula: {e}")
+    #             # Column 53: Kerjasama/ P I
+    #             try:
+    #                 kerjasama_cell = sheet.cell(row=row_idx, column=53)
+    #                 kerjasama_cell.value = f'=IFS(AQ{row_idx}<2,"R",AQ{row_idx}<4,"K",AQ{row_idx}<6,"C",AQ{row_idx}<9,"B",AQ{row_idx}=9,"T")'
+    #             except Exception as e:
+    #                 print(f"Error setting Kerjasama formula: {e}")
                 
-                # Column 54: Keterampilan Interpersonal/ B S
-                try:
-                    interpersonal_cell = sheet.cell(row=row_idx, column=54)
-                    interpersonal_cell.value = f'=IFS(AR{row_idx}<2,"R",AR{row_idx}<4,"K",AR{row_idx}<6,"C",AR{row_idx}<9,"B",AR{row_idx}=9,"T")'
-                except Exception as e:
-                    print(f"Error setting Keterampilan Interpersonal formula: {e}")
+    #             # Column 54: Keterampilan Interpersonal/ B S
+    #             try:
+    #                 interpersonal_cell = sheet.cell(row=row_idx, column=54)
+    #                 interpersonal_cell.value = f'=IFS(AR{row_idx}<2,"R",AR{row_idx}<4,"K",AR{row_idx}<6,"C",AR{row_idx}<9,"B",AR{row_idx}=9,"T")'
+    #             except Exception as e:
+    #                 print(f"Error setting Keterampilan Interpersonal formula: {e}")
                 
-                # Column 55: Stabilitas Emosi/ E PHQ
-                try:
-                    emosi_cell = sheet.cell(row=row_idx, column=55)
-                    emosi_cell.value = f'=IFS(AJ{row_idx}<2,"R",AJ{row_idx}<4,"K",AJ{row_idx}<6,"C",AJ{row_idx}<9,"B",AJ{row_idx}=9,"T")'
-                except Exception as e:
-                    print(f"Error setting Stabilitas Emosi formula: {e}")
+    #             # Column 55: Stabilitas Emosi/ E PHQ
+    #             try:
+    #                 emosi_cell = sheet.cell(row=row_idx, column=55)
+    #                 emosi_cell.value = f'=IFS(AJ{row_idx}<2,"R",AJ{row_idx}<4,"K",AJ{row_idx}<6,"C",AJ{row_idx}<9,"B",AJ{row_idx}=9,"T")'
+    #             except Exception as e:
+    #                 print(f"Error setting Stabilitas Emosi formula: {e}")
                 
-                # Column 56: Pegembangan Diri/ W
-                try:
-                    diri_cell = sheet.cell(row=row_idx, column=56)
-                    diri_cell.value = f'=IFS(AM{row_idx}<2,"R",AM{row_idx}<4,"K",AM{row_idx}<6,"C",AM{row_idx}<9,"B",AM{row_idx}=9,"T")'
-                except Exception as e:
-                    print(f"Error setting Pegembangan Diri formula: {e}")
+    #             # Column 56: Pegembangan Diri/ W
+    #             try:
+    #                 diri_cell = sheet.cell(row=row_idx, column=56)
+    #                 diri_cell.value = f'=IFS(AM{row_idx}<2,"R",AM{row_idx}<4,"K",AM{row_idx}<6,"C",AM{row_idx}<9,"B",AM{row_idx}=9,"T")'
+    #             except Exception as e:
+    #                 print(f"Error setting Pegembangan Diri formula: {e}")
                 
-                # Column 57: Mengelola Perubahan/ Z K
-                try:
-                    perubahan_cell = sheet.cell(row=row_idx, column=57)
-                    perubahan_cell.value = f'=IFS(AS{row_idx}<2,"R",AS{row_idx}<4,"K",AS{row_idx}<6,"C",AS{row_idx}<9,"B",AS{row_idx}=9,"T")'
-                except Exception as e:
-                    print(f"Error setting Mengelola Perubahan formula: {e}")
+    #             # Column 57: Mengelola Perubahan/ Z K
+    #             try:
+    #                 perubahan_cell = sheet.cell(row=row_idx, column=57)
+    #                 perubahan_cell.value = f'=IFS(AS{row_idx}<2,"R",AS{row_idx}<4,"K",AS{row_idx}<6,"C",AS{row_idx}<9,"B",AS{row_idx}=9,"T")'
+    #             except Exception as e:
+    #                 print(f"Error setting Mengelola Perubahan formula: {e}")
             
-            print("Formula berhasil diaplikasikan langsung ke sheet Excel")
-            return True
-        except Exception as e:
-            print(f"Error saat menerapkan formula: {e}")
-            return False
+    #         print("Formula berhasil diaplikasikan langsung ke sheet Excel")
+    #         return True
+    #     except Exception as e:
+    #         print(f"Error saat menerapkan formula: {e}")
+    #         return False
     
-    def get_excel_column_index(self, column_name):
-        """
-        Mendapatkan indeks kolom Excel (1-based) dari nama kolom
-        """
-        try:
-            # Cari indeks kolom (0-based)
-            idx = self.get_column_index(column_name)
-            # Konversi ke indeks Excel (1-based)
-            return idx + 1 if idx >= 0 else None
-        except Exception as e:
-            print(f"Error mendapatkan indeks kolom Excel: {e}")
-            return None
+    # def get_excel_column_index(self, column_name):
+    #     """
+    #     Mendapatkan indeks kolom Excel (1-based) dari nama kolom
+    #     """
+    #     try:
+    #         # Cari indeks kolom (0-based)
+    #         idx = self.get_column_index(column_name)
+    #         # Konversi ke indeks Excel (1-based)
+    #         return idx + 1 if idx >= 0 else None
+    #     except Exception as e:
+    #         print(f"Error mendapatkan indeks kolom Excel: {e}")
+    #         return None
 
     def apply_psikogram_formulas(self, sheet, row_idx):
         """
@@ -4299,9 +3522,9 @@ class ExcelViewerApp(QWidget):
             perubahan_cell = sheet.cell(row=row_idx, column=57)
             perubahan_cell.value = f'=IFS(AS{row_idx}<2,"R",AS{row_idx}<4,"K",AS{row_idx}<6,"C",AS{row_idx}<9,"B",AS{row_idx}=9,"T")'
 
-            # Kolom 58-70: Formula untuk kolom .1
+            # Kolom 59-71: Formula untuk kolom .1
             try:
-                # Logika Berpikir 1.1 (kolom 58)
+                # Logika Berpikir 1.1 (kolom 59)
                 logika_cell = sheet.cell(row=row_idx, column=58)
                 logika_cell.value = f'=IF(AT{row_idx}="R",Sheet3!$F$30,IF(AT{row_idx}="K",Sheet3!$F$31,IF(AT{row_idx}="C",Sheet3!$F$32,IF(AT{row_idx}="B",Sheet3!$F$33,IF(AT{row_idx}="T",Sheet3!$F$34)))))'
 
