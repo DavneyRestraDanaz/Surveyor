@@ -25,7 +25,11 @@ import copy
 from openpyxl.utils.cell import get_column_letter
 import re
 import base64
+
 from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
+
+import random
+
 
 class ExcelViewerApp(QWidget):
     def __init__(self):
@@ -2243,8 +2247,8 @@ class ExcelViewerApp(QWidget):
                         <img src="{logo_data_url}" alt="Logo" style="width: 100%; height: auto;">
                     </div>
                     <div style="text-align: center; flex-grow: 1;">
-                        <div style="font-size: 14px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
-                        <div style="font-size: 12px; color: #1f4e79;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
+                        <div style="font-size: 15px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
+                        <div style="font-size: 17px; font-weight: bold; color: #1f4e79;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
                     </div>
                     <div style="text-align: right; font-size: 12px;">
                         <div style="font-weight: bold; color: #1f4e79;">RAHASIA</div>
@@ -2593,105 +2597,105 @@ class ExcelViewerApp(QWidget):
                 except ValueError:
                     selected_category = "Unknown"
 
-            # Define a function to generate conclusion text based on column mappings
-            def generate_conclusion_text(aspect, category, sheet):
+            def generate_conclusion_text(aspect, category, sheet, option):
                 # Define the cell mappings for each aspect and category
                 cell_mappings = {
                     "Logika Berpikir 1": {
-                        "R": "F30",
-                        "K": "F31", 
-                        "C": "F32",
-                        "B": "F33",
-                        "T": "F34"
+                        "R": {"F": "F30", "G": "G30", "H": "H30"},
+                        "K": {"F": "F31", "G": "G31", "H": "H31"},
+                        "C": {"F": "F32", "G": "G32", "H": "H32"},
+                        "B": {"F": "F33", "G": "G33", "H": "H33"},
+                        "T": {"F": "F34", "G": "G34", "H": "H34"}
                     },
                     "Daya Analisa 3": {
-                        "R": "F35",
-                        "K": "F36",
-                        "C": "F37", 
-                        "B": "F38",
-                        "T": "F39"
+                        "R": {"F": "F35", "G": "G35", "H": "H35"},
+                        "K": {"F": "F36", "G": "G36", "H": "H36"},
+                        "C": {"F": "F37", "G": "G37", "H": "H37"},
+                        "B": {"F": "F38", "G": "G38", "H": "H38"},
+                        "T": {"F": "F39", "G": "G39", "H": "H39"}
                     },
                     "Kemampuan Numerik 5": {
-                        "R": "F40",
-                        "K": "F41",
-                        "C": "F42",
-                        "B": "F43", 
-                        "T": "F44"
+                        "R": {"F": "F40", "G": "G40", "H": "H40"},
+                        "K": {"F": "F41", "G": "G41", "H": "H41"},
+                        "C": {"F": "F42", "G": "G42", "H": "H42"},
+                        "B": {"F": "F43", "G": "G43", "H": "H43"},
+                        "T": {"F": "F44", "G": "G44", "H": "H44"}
                     },
                     "Kemampuan Verbal 2 dam 4": {
-                        "R": "F45",
-                        "K": "F46",
-                        "C": "F47",
-                        "B": "F48",
-                        "T": "F49"
+                        "R": {"F": "F45", "G": "G45", "H": "H45"},
+                        "K": {"F": "F46", "G": "G46", "H": "H46"},
+                        "C": {"F": "F47", "G": "G47", "H": "H47"},
+                        "B": {"F": "F48", "G": "G48", "H": "H48"},
+                        "T": {"F": "F49", "G": "G49", "H": "H49"}
                     },
                     "Orientasi Hasil/ N G": {
-                        "R": "F50",
-                        "K": "F51",
-                        "C": "F52",
-                        "B": "F53",
-                        "T": "F54"
+                        "R": {"F": "F50", "G": "G50", "H": "H50"},
+                        "K": {"F": "F51", "G": "G51", "H": "H51"},
+                        "C": {"F": "F52", "G": "G52", "H": "H52"},
+                        "B": {"F": "F53", "G": "G53", "H": "H53"},
+                        "T": {"F": "F54", "G": "G54", "H": "H54"}
                     },
                     "Fleksibilitas/ T V": {
-                        "R": "F55",
-                        "K": "F56",
-                        "C": "F57",
-                        "B": "F58",
-                        "T": "F59"
+                        "R": {"F": "F55", "G": "G55", "H": "H55"},
+                        "K": {"F": "F56", "G": "G56", "H": "H56"},
+                        "C": {"F": "F57", "G": "G57", "H": "H57"},
+                        "B": {"F": "F58", "G": "G58", "H": "H58"},
+                        "T": {"F": "F59", "G": "G59", "H": "H59"}
                     },
                     "Sistematika Kerja/ C D R": {
-                        "R": "F60",
-                        "K": "F61",
-                        "C": "F62",
-                        "B": "F63",
-                        "T": "F64"
+                        "R": {"F": "F60", "G": "G60", "H": "H60"},
+                        "K": {"F": "F61", "G": "G61", "H": "H61"},
+                        "C": {"F": "F62", "G": "G62", "H": "H62"},
+                        "B": {"F": "F63", "G": "G63", "H": "H63"},
+                        "T": {"F": "F64", "G": "G64", "H": "H64"}
                     },
                     "Motivasi Berprestasi/ A": {
-                        "R": "F65",
-                        "K": "F66",
-                        "C": "F67",
-                        "B": "F68",
-                        "T": "F69"
+                        "R": {"F": "F65", "G": "G65", "H": "H65"},
+                        "K": {"F": "F66", "G": "G66", "H": "H66"},
+                        "C": {"F": "F67", "G": "G67", "H": "H67"},
+                        "B": {"F": "F68", "G": "G68", "H": "H68"},
+                        "T": {"F": "F69", "G": "G69", "H": "H69"}
                     },
                     "Kerjasama/ P I": {
-                        "R": "F70",
-                        "K": "F71",
-                        "C": "F72",
-                        "B": "F73",
-                        "T": "F74"
+                        "R": {"F": "F70", "G": "G70", "H": "H70"},
+                        "K": {"F": "F71", "G": "G71", "H": "H71"},
+                        "C": {"F": "F72", "G": "G72", "H": "H72"},
+                        "B": {"F": "F73", "G": "G73", "H": "H73"},
+                        "T": {"F": "F74", "G": "G74", "H": "H74"}
                     },
                     "Keterampilan Interpersonal/ B S": {
-                        "R": "F75",
-                        "K": "F76",
-                        "C": "F77",
-                        "B": "F78",
-                        "T": "F79"
+                        "R": {"F": "F75", "G": "G75", "H": "H75"},
+                        "K": {"F": "F76", "G": "G76", "H": "H76"},
+                        "C": {"F": "F77", "G": "G77", "H": "H77"},
+                        "B": {"F": "F78", "G": "G78", "H": "H78"},
+                        "T": {"F": "F79", "G": "G79", "H": "H79"}
                     },
                     "Stabilitas Emosi/ E PHQ": {
-                        "R": "F80",
-                        "K": "F81",
-                        "C": "F82",
-                        "B": "F83",
-                        "T": "F84"
+                        "R": {"F": "F80", "G": "G80", "H": "H80"},
+                        "K": {"F": "F81", "G": "G81", "H": "H81"},
+                        "C": {"F": "F82", "G": "G82", "H": "H82"},
+                        "B": {"F": "F83", "G": "G83", "H": "H83"},
+                        "T": {"F": "F84", "G": "G84", "H": "H84"}
                     },
                     "Pegembangan Diri/ W": {
-                        "R": "F85",
-                        "K": "F86",
-                        "C": "F87",
-                        "B": "F88",
-                        "T": "F89"
+                        "R": {"F": "F85", "G": "G85", "H": "H85"},
+                        "K": {"F": "F86", "G": "G86", "H": "H86"},
+                        "C": {"F": "F87", "G": "G87", "H": "H87"},
+                        "B": {"F": "F88", "G": "G88", "H": "H88"},
+                        "T": {"F": "F89", "G": "G89", "H": "H89"}
                     },
                     "Mengelola Perubahan/ Z K": {
-                        "R": "F90",
-                        "K": "F91",
-                        "C": "F92",
-                        "B": "F93",
-                        "T": "F94"
+                        "R": {"F": "F90", "G": "G90", "H": "H90"},
+                        "K": {"F": "F91", "G": "G91", "H": "H91"},
+                        "C": {"F": "F92", "G": "G92", "H": "H92"},
+                        "B": {"F": "F93", "G": "G93", "H": "H93"},
+                        "T": {"F": "F94", "G": "G94", "H": "H94"}
                     }
                 }
                 
-                # Get the cell reference for the given aspect and category
-                cell_ref = cell_mappings.get(aspect, {}).get(category, "")
+                # Get the cell reference for the given aspect, category, and option
+                cell_ref = cell_mappings.get(aspect, {}).get(category, {}).get(option, "")
+                
                 # Retrieve the text from the specified cell
                 if cell_ref:
                     cell_value = sheet[cell_ref].value
@@ -2709,48 +2713,68 @@ class ExcelViewerApp(QWidget):
 
             # Generate conclusion text for each aspect
             conclusion_texts = {category: [] for category in aspect_categories}
+
+            # Predefined option choice (set to "F", "G", or "H")
+            # Randomly select an option for variety
+            option = random.choice(["F", "G", "H"])
+
+            # Function to choose an option based on the predefined choice
+            def choose_option(aspect, current_option):
+                # Always return the predefined option
+                return current_option
+
+            # Get IQ value first
+            iq_val = self.table.item(selected_row, self.get_column_index("IQ "))
+            iq_value = float(iq_val.text()) if iq_val and iq_val.text().strip() else 0
+
+            # Initialize counters for recommendation criteria
+            intellectual_k_count = 0
+            work_attitude_k_count = 0 
+            personality_k_count = 0
+
+            # Iterate over aspects and use the chosen option consistently
             for aspect in column_mappings.keys():
                 category = row_data.get(aspect, "")
-                text = generate_conclusion_text(aspect, category, sheet3)
+                text = generate_conclusion_text(aspect, category, sheet3, option)
+                
+                # Count K values for each category
+                if category == "K":
+                    if aspect in aspect_categories["KEMAMPUAN INTELEKTUAL"]:
+                        intellectual_k_count += 1
+                    elif aspect in aspect_categories["SIKAP DAN CARA KERJA"]:
+                        work_attitude_k_count += 1
+                    elif aspect in aspect_categories["KEPRIBADIAN"]:
+                        personality_k_count += 1
+                        
                 for category_name, aspects in aspect_categories.items():
                     if aspect in aspects:
                         conclusion_texts[category_name].append(text)
 
-            # Function to determine overall recommendation
-            def determine_recommendation(iq_value, intellectual_scores, work_attitude_scores, personality_scores):
-                # Count the number of "K" (Kurang) values in each category
-                intellectual_k_count = sum(1 for score in intellectual_scores if score == "K")
-                work_attitude_k_count = sum(1 for score in work_attitude_scores if score == "K")
-                personality_k_count = sum(1 for score in personality_scores if score == "K")
-
-                # Determine recommendation based on criteria
-                if iq_value >= 90 and intellectual_k_count <= 2 and work_attitude_k_count <= 1 and personality_k_count <= 1:
-                    return "LAYAK DIREKOMENDASIKAN"
-                elif 86 <= iq_value < 90 and intellectual_k_count <= 3 and work_attitude_k_count <= 1 and personality_k_count <= 2:
-                    return "LAYAK DIPERTIMBANGKAN"
-                elif iq_value <= 84 or intellectual_k_count > 3 or work_attitude_k_count > 1 or personality_k_count > 2:
-                    return "TIDAK DISARANKAN"
-                else:
-                    return "TIDAK DISARANKAN"
-
-            # Get IQ value and scores from the table
-            iq_value = float(iq_val.text()) if iq_val else 0
-            
             # Convert aspects dictionary values to lists with default empty strings
             intellectual_scores = []
             for key in ["daya_analisa", "kemampuan_numerik", "kemampuan_verbal"]:
                 intellectual_scores.append(aspects[key] if key in aspects else "")
-                
+
             work_attitude_scores = []
             for key in ["sistematika_kerja", "fleksibilitas"]:
                 work_attitude_scores.append(aspects[key] if key in aspects else "")
-                
+
             personality_scores = []
             for key in ["inisiatif", "kerjasama", "keterampilan_interpersonal", "stabilitas_emosi"]:
                 personality_scores.append(aspects[key] if key in aspects else "")
 
-            # Determine the overall recommendation
-            overall_recommendation = determine_recommendation(iq_value, intellectual_scores, work_attitude_scores, personality_scores)
+            # Determine recommendation based on criteria
+            def determine_recommendation():
+                if iq_value >= 90 and intellectual_k_count <= 2 and work_attitude_k_count <= 1 and personality_k_count <= 1:
+                    return "LAYAK DIREKOMENDASIKAN"
+                elif 86 <= iq_value < 90 and intellectual_k_count <= 3 and work_attitude_k_count <= 1 and personality_k_count <= 2:
+                    return "LAYAK DIPERTIMBANGKAN"
+                else:
+                    return "TIDAK DISARANKAN"
+
+            # Get the overall recommendation
+            overall_recommendation = determine_recommendation()
+            
             # Add page break and second page content
             html_content += f"""
                 <div class="page-break"></div>
@@ -2760,8 +2784,8 @@ class ExcelViewerApp(QWidget):
                             <img src="{logo_data_url}" alt="Logo" style="width: 100%; height: auto;">
                         </div>
                         <div style="text-align: center; flex-grow: 1;">
-                            <div style="font-size: 18px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
-                            <div style="font-size: 16px; color: #1f4e79;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
+                        <div style="font-size: 15px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
+                        <div style="font-size: 17px; font-weight: bold; color: #1f4e79;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
                         </div>
                         <div style="text-align: right; font-size: 12px;">
                             <div style="font-weight: bold; color: #1f4e79;">RAHASIA</div>
@@ -2771,7 +2795,7 @@ class ExcelViewerApp(QWidget):
 
                     <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 10px; font-family: Arial, sans-serif;">
                         <tr>
-                            <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">KESIMPULAN</th>
+                            <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black; font-size: 16px;">KESIMPULAN</th>
                         </tr>
                         <tr>
                             <td style="width: 20%; padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">KEMAMPUAN INTELEKTUAL</td>
@@ -2837,7 +2861,7 @@ class ExcelViewerApp(QWidget):
 
                     <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
                         <tr>
-                            <th colspan="3" style="text-align: center; padding: 10px; background-color: #fbe4d5; border: 1px solid black; font-size: 12px;">Kategori Hasil Screening</th>
+                            <th colspan="3" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black; font-size: 14px;">Kategori Hasil Screening</th>
                         </tr>
                         <tr>
 
@@ -2857,9 +2881,9 @@ class ExcelViewerApp(QWidget):
                             <td style="padding: 10px; border: 1px solid black; font-size: 14px;">Individu tidak menunjukkan adanya gejala gangguan mental yang mengganggu fungsi sehari-hari.</td>
                         </tr>
                         <tr>
-                            <td style="text-align: center; border: 1px solid black; padding: 10px; font-size: 14px;">{"X" if selected_category == "Cenderung Stress dalam Tekanan" else ""}</td>
-                            <td style="text-align: center; padding: 10px; border: 1px solid black; font-size: 14px;">Kecenderungan Stress dalam Tekanan</td>
-                            <td style="padding: 10px; border: 1px solid black; font-size: 14px;">Dalam situasi yg menimbulkan tekanan dapat berdampak pada kondisi mental & respon emosional yg ditampilkan.</td>
+                            <td style="text-align: center; border: 1px solid black; padding: 8px; font-size: 11px;">{"X" if selected_category == "Cenderung Stress dalam Tekanan" else ""}</td>
+                            <td style="text-align: center; padding: 8px; border: 1px solid black; font-size: 11px;">Kecenderungan Stress dalam Tekanan</td>
+                            <td style="padding: 8px; border: 1px solid black; font-size: 11px;">Dalam situasi yg menimbulkan tekanan dapat berdampak pada kondisi mental & respon emosional yg ditampilkan.</td>
                         </tr>
                         <tr>
                             <td style="text-align: center; border: 1px solid black; padding: 10px; font-size: 14px;">{"X" if selected_category == "Gejala Gangguan" else ""}</td>
@@ -2908,8 +2932,8 @@ class ExcelViewerApp(QWidget):
                     <div style="display: flex; align-items: center; margin-bottom: 20px;">
                         <img src="{logo_data_url}" alt="Logo" style="width: 150px; height: auto; margin-right: 20px;">
                         <div style="flex-grow: 1; text-align: center;">
-                            <div style="font-size: 14px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
-                            <div style="font-size: 12px; color: #1f4e79;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
+                        <div style="font-size: 14px; font-weight: bold; color: #1f4e79;">HASIL PEMERIKSAAN PSIKOLOGIS</div>
+                        <div style="font-size: 16px; font-weight: bold; color: #1f4e79;">(Asesmen Intelegensi, Kepribadian dan Minat)</div>
                         </div>
                         <div style="text-align: right; font-size: 12px;">
                             <div style="font-weight: bold; color: #1f4e79;">RAHASIA</div>
@@ -3019,7 +3043,7 @@ class ExcelViewerApp(QWidget):
 
             # Create web view for page 3
             web_view3 = QWebEngineView(preview_dialog)
-            web_view3.setZoomFactor(0.8)
+            web_view3.setZoomFactor(0.75)
             web_view3.setFixedWidth(int(dialog_width * 0.3))  # Adjust width to 30% for 3 pages
             if len(pages) > 2:
                 web_view3.setHtml(pages[2])
