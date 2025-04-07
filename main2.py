@@ -180,7 +180,7 @@ class ExcelViewerApp(QWidget):
         
         # Sesuaikan field PAPIKOSTICK berdasarkan log
         papikostick_fields = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", 
-                              "C", "D", "R", "Z", "E", "K", "F", "W"]
+                              "C", "D", "R", "Z", "E", "K", "F", "W"]  # W sekarang di posisi 19 (indeks 38 di Excel)
         self.papikostick_inputs = []
         for i, placeholder in enumerate(papikostick_fields):
             label = QLabel(placeholder + ":")
@@ -354,6 +354,10 @@ class ExcelViewerApp(QWidget):
     def populate_fields_from_selection(self):
         selected_row = self.table.currentRow()
         if selected_row >= 0:
+            # Definisikan papikostick_fields di sini
+            papikostick_fields = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", 
+                                 "C", "D", "R", "Z", "E", "K", "F", "W"]  # W di posisi 19
+            
             row_data = {}
             for col, column_name in enumerate(self.columns):
                 item = self.table.item(selected_row, col)
@@ -424,25 +428,26 @@ class ExcelViewerApp(QWidget):
                     if value.lower() == 'nan':
                         value = ""
                     field.setText(value)
-
-            # Populate PAPIKOSTICK inputs menggunakan mapping khusus
-            papiko_columns = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", "C", "D", "R", "Z", "E", "K", "F", "W"]
             
             # Debug untuk mapping PAPIKOSTICK
             print("DEBUG - Populate PAPIKOSTICK fields from selection:")
             
             # Telusuri setiap kolom PAPIKOSTICK untuk menemukan indeks yang tepat
             papiko_indices = {}
-            for col_name in papiko_columns:
+            for col_name in papikostick_fields:
                 col_idx = self.get_column_index(col_name)
                 if col_idx >= 0:
                     papiko_indices[col_name] = col_idx
                     
             # Telusuri setiap input field PAPIKOSTICK
-            for field_idx, field_label in enumerate(papiko_columns):
+            for field_idx, field_label in enumerate(papikostick_fields):
                 if field_label in papiko_indices:
                     col_idx = papiko_indices[field_label]
                     value = self.get_cell_text(selected_row, col_idx)
+                    
+                    # Khusus untuk kolom W, ambil dari kolom 38
+                    if field_label == "W":
+                        value = self.get_cell_text(selected_row, 38)  # Ambil dari kolom 38
                     
                     # Ganti 'nan' dengan string kosong
                     if value.lower() == 'nan':
@@ -464,6 +469,20 @@ class ExcelViewerApp(QWidget):
                     # Kosongkan kolom jika tidak ditemukan
                     if field_idx < len(self.papikostick_inputs):
                         self.papikostick_inputs[field_idx].setText("")
+
+            # Debug untuk melihat posisi kolom W di Excel
+            w_col_idx = 38  # Indeks kolom W di Excel
+            print(f"DEBUG - Mencoba mengambil nilai W dari kolom {w_col_idx}")
+            
+            # Ambil nilai W langsung dari kolom 38
+            w_value = self.get_cell_text(selected_row, w_col_idx)
+            print(f"DEBUG - Nilai W yang diambil: '{w_value}'")
+            
+            # Simpan nilai W ke input field yang sesuai
+            w_field_idx = papikostick_fields.index("W")  # Sekarang papikostick_fields sudah didefinisikan
+            if w_field_idx < len(self.papikostick_inputs):
+                self.papikostick_inputs[w_field_idx].setText(w_value)
+                print(f"DEBUG - Nilai W diset ke input field: '{w_value}'")
 
     def load_excel(self):
         
@@ -871,358 +890,520 @@ class ExcelViewerApp(QWidget):
             # Update SDR/SDRI field based on gender
             self.update_sdr_sdri()
 
+    def calculate_psikogram_values(self, ist_values, papikostick_values):
+        """Menghitung nilai-nilai psikogram berdasarkan rumus yang diberikan"""
+        psikogram = {}
+        
+        # Fungsi helper untuk menentukan nilai berdasarkan range IST
+        def get_ist_value(value):
+            try:
+                value = float(value)
+                if value < 80:
+                    return "R"
+                elif value < 100:
+                    return "K"
+                elif value < 120:
+                    return "C"
+                elif value < 140:
+                    return "B"
+                else:
+                    return "T"
+            except (ValueError, TypeError):
+                return ""
+
+        # Fungsi helper untuk menentukan nilai berdasarkan range PAPIKOSTICK
+        def get_papiko_value(value):
+            try:
+                value = float(value)
+                if value < 2:
+                    return "R"
+                elif value < 4:
+                    return "K"
+                elif value < 6:
+                    return "C"
+                elif value < 9:
+                    return "B"
+                elif value == 9:
+                    return "T"
+                else:
+                    return ""
+            except (ValueError, TypeError):
+                return ""
+
+        # Logika Berpikir 1 (L)
+        psikogram['Logika Berpikir 1'] = get_ist_value(ist_values.get("SE / Konkrit Praktis", ""))
+
+        # Daya Analisa 3 (M)
+        psikogram['Daya Analisa 3'] = get_ist_value(ist_values.get("WA/ Verbal", ""))
+
+        # Kemampuan Verbal 2 dam 4 (O)
+        psikogram['Kemampuan Verbal 2 dam 4'] = get_ist_value(ist_values.get("GE / Daya Abstraksi Verbal", ""))
+
+        # Kemampuan Numerik 5 (N)
+        psikogram['Kemampuan Numerik 5'] = get_ist_value(ist_values.get(" AN / Flexibilitas Pikir", ""))
+
+        # Sistematika Kerja/ C D R
+        psikogram['Sistematika Kerja/ C D R'] = get_papiko_value(papikostick_values.get("CDR", ""))
+
+        # Orientasi Hasil/ N G
+        psikogram['Orientasi Hasil/ N G'] = get_papiko_value(papikostick_values.get("NG", ""))
+
+        # Fleksibilitas/ T V
+        psikogram['Fleksibilitas/ T V'] = get_papiko_value(papikostick_values.get("TV", ""))
+
+        # Motivasi Berprestasi/ A
+        psikogram['Motivasi Berprestasi/ A'] = get_papiko_value(papikostick_values.get("A", ""))
+
+        # Kerjasama/ P I
+        psikogram['Kerjasama/ P I'] = get_papiko_value(papikostick_values.get("PI", ""))
+
+        # Keterampilan Interpersonal/ B S
+        psikogram['Keterampilan Interpersonal/ B S'] = get_papiko_value(papikostick_values.get("BS", ""))
+
+        # Stabilitas Emosi/ E PHQ
+        psikogram['Stabilitas Emosi/ E PHQ'] = get_papiko_value(papikostick_values.get("E", ""))
+
+        # Pegembangan Diri/ W
+        psikogram['Pegembangan Diri/ W'] = get_papiko_value(papikostick_values.get("W", ""))
+
+        # Mengelola Perubahan/ Z K
+        psikogram['Mengelola Perubahan/ Z K'] = get_papiko_value(papikostick_values.get("ZK", ""))
+
+        # Tambahkan kolom .1 dengan nilai yang sama
+        for base_key in list(psikogram.keys()):
+            if not base_key.endswith('.1'):
+                psikogram[base_key + '.1'] = psikogram[base_key]
+
+        return psikogram
+
     def add_or_update_row(self, mode="add"):
-        # Collect values from all three input groups
-        values = []
-        
-        # For personal fields
-        for i, field in enumerate(self.personal_inputs):
-            # Ensure SDR/SDRI and Keterangan PHQ are set correctly
-            if i == 6:  # SDR/SDRI field
-                jk_value = self.personal_inputs[5].text()
-                if jk_value == "P":
-                    values.append("Sdri.")
-                elif jk_value == "L":
-                    values.append("Sdr.")
-                else:
-                    values.append("")
-            elif i == 9:  # Keterangan PHQ field
-                phq_text = self.personal_inputs[8].text().strip()
-                if phq_text:
-                    try:
-                        phq_value = float(phq_text)
-                        if phq_value < 5:
-                            values.append("Tidak ada")
-                        elif phq_value < 10:
-                            values.append("Ringan")
-                        elif phq_value < 15:
-                            values.append("Sedang")
-                        elif phq_value < 20:
-                            values.append("Cukup Berat")
-                        else:
-                            values.append("Parah")
-                    except ValueError:
-                        values.append("")
-                else:
-                    values.append("")
-            else:
-                values.append(field.text())
-        
-        # Add IST values
-        values.extend([field.text() for field in self.ist_inputs])
-        
-        # Add PAPIKOSTICK values
-        papikostick_values = []
-        for field in self.papikostick_inputs:
-            text = field.text().strip()
-            # Jika teks kosong, gunakan "0" untuk X dan PAPIKOSTICK lainnya
-            if not text:
-                papikostick_values.append("0")
-            else:
-                papikostick_values.append(text)
-        values.extend(papikostick_values)
-        
-        # Debug information
-        print(f"Number of values: {len(values)}")
-        print(f"Number of columns: {len(self.columns)}")
-        
-        # Debug untuk melihat struktur kolom secara detail
-        for i, col in enumerate(self.columns):
-            print(f"DEBUG - Column {i}: {col}")
-            
-        # Debug untuk papikostick fields
-        print("DEBUG - PAPIKOSTICK fields:")
-        for i, field in enumerate(self.papikostick_inputs):
-            print(f"DEBUG - Field {i}: {field.text()}")
-        
-        print(f"Columns: {self.columns}")  # Print column names for debugging
-        
-        # Check if any field is empty
-        if any(not val.strip() for val in values[:5]) or not values[7].strip():  # Check important fields only
-            print("Please fill all required fields (No, No Tes, Tgl Test, TGL Lahir, Nama PT, JK, Nama Peserta)")
-            QMessageBox.warning(self, "Warning", "Harap isi semua field penting (No, No Tes, Tgl Test, TGL Lahir, Nama PT, JK, Nama Peserta)")
-            return
-        
-        # Ensure the values list has the correct number of elements
-        expected_fields = len(self.personal_inputs) + len(self.ist_inputs) + len(self.papikostick_inputs)
-        if len(values) < expected_fields:
-            print(f"Expected {expected_fields} fields, got {len(values)}")
-            return
-        
         try:
-            # Convert numeric values
-            for i in range(10, len(values)):  # Start after personal fields
-                if i < len(values) and values[i].strip():  # Check if index is within bounds and value is not empty
-                    try:
-                        values[i] = float(values[i])
-                    except ValueError:
-                        print(f"Invalid numeric value: {values[i]} at position {i}")
-                        QMessageBox.warning(self, "Warning", f"Nilai tidak valid: {values[i]} pada posisi {i+1}")
-                        return
-        except ValueError as e:
-            print(f"Please enter valid numeric values for numeric fields: {e}")
-            QMessageBox.warning(self, "Warning", f"Harap masukkan nilai numerik yang valid: {e}")
-            return
-        
-        # Create a complete row with all columns
-        row_data = {}
-        
-        # Add personal info
-        for i, field in enumerate(self.personal_inputs):
-            if i < len(self.columns):
-                if i == 6:  # SDR/SDRI
+            # Collect values from all three input groups
+            values = {}
+            
+            # For personal fields (kolom 0-9)
+            personal_fields = ["No", "No Tes", "Tgl Test", "TGL Lahir", "Nama PT", "JK", "SDR/SDRI", "Nama Peserta", "PHQ", "Keterangan PHQ"]
+            for i, field in enumerate(self.personal_inputs):
+                field_name = personal_fields[i]
+                
+                # Penanganan khusus untuk SDR/SDRI
+                if field_name == "SDR/SDRI":
                     jk_value = self.personal_inputs[5].text()
                     if jk_value == "P":
-                        row_data[self.columns[i]] = "Sdri."
+                        values[field_name] = "Sdri."
                     elif jk_value == "L":
-                        row_data[self.columns[i]] = "Sdr."
+                        values[field_name] = "Sdr."
                     else:
-                        row_data[self.columns[i]] = ""
-                elif i == 9:  # Keterangan PHQ
+                        values[field_name] = ""
+                        
+                # Penanganan khusus untuk Keterangan PHQ
+                elif field_name == "Keterangan PHQ":
                     phq_text = self.personal_inputs[8].text().strip()
                     if phq_text:
                         try:
                             phq_value = float(phq_text)
                             if phq_value < 5:
-                                row_data[self.columns[i]] = "Tidak ada"
+                                values[field_name] = "Tidak ada"
                             elif phq_value < 10:
-                                row_data[self.columns[i]] = "Ringan"
+                                values[field_name] = "Ringan"
                             elif phq_value < 15:
-                                row_data[self.columns[i]] = "Sedang"
+                                values[field_name] = "Sedang"
                             elif phq_value < 20:
-                                row_data[self.columns[i]] = "Cukup Berat"
+                                values[field_name] = "Cukup Berat"
                             else:
-                                row_data[self.columns[i]] = "Parah"
+                                values[field_name] = "Parah"
                         except ValueError:
-                            row_data[self.columns[i]] = ""
+                            values[field_name] = ""
                     else:
-                        row_data[self.columns[i]] = ""
+                        values[field_name] = ""
                 else:
-                    row_data[self.columns[i]] = field.text()
-        
-        # Add IST values
-        ist_start_idx = len(self.personal_inputs)
-        ist_values = {}
-        for i, field in enumerate(self.ist_inputs):
-            col_idx = ist_start_idx + i
-            if col_idx < len(self.columns):
+                    values[field_name] = field.text()
+
+            # Add IST values (kolom 10-16)
+            ist_fields = ["IQ ", "SE / Konkrit Praktis", "WA/ Verbal", " AN / Flexibilitas Pikir", 
+                         "GE / Daya Abstraksi Verbal", "RA / Berpikir Praktis", "Unnamed: 16"]
+            for i, field in enumerate(self.ist_inputs):
+                field_name = ist_fields[i]
+                value = field.text().strip()
                 try:
-                    input_text = field.text()
-                    # Jika input kosong, biarkan kosong (string kosong, bukan 0)
-                    if not input_text.strip():
-                        row_data[self.columns[col_idx]] = ""
+                    if value:
+                        float_value = float(value)
+                        values[field_name] = float_value
                     else:
-                        # Simpan untuk perhitungan IQ
-                        ist_values[self.columns[col_idx]] = float(input_text)
-                        row_data[self.columns[col_idx]] = float(input_text)
+                        values[field_name] = ""
                 except ValueError:
-                    print(f"Invalid numeric value: {field.text()}")
-                    QMessageBox.warning(self, "Warning", f"Nilai tidak valid: {field.text()}")
-                    return
-        
-        # Hitung nilai IQ = SUM(L4:P4)/5
-        if all(col in ist_values for col in ["SE / Konkrit Praktis", "WA/ Verbal", " AN / Flexibilitas Pikir", "GE / Daya Abstraksi Verbal", "RA / Berpikir Praktis"]):
-            iq_val = (ist_values["SE / Konkrit Praktis"] + ist_values["WA/ Verbal"] + ist_values[" AN / Flexibilitas Pikir"] + 
-                     ist_values["GE / Daya Abstraksi Verbal"] + ist_values["RA / Berpikir Praktis"]) / 5
-            row_data["IQ "] = iq_val
-            print(f"Menghitung IQ dalam add_or_update_row: {iq_val}")
-            
-            # Hitung Unnamed: 16 = (AN + GE)/2
-            unnamed_16_val = (ist_values[" AN / Flexibilitas Pikir"] + ist_values["GE / Daya Abstraksi Verbal"]) / 2
-            row_data["Unnamed: 16"] = unnamed_16_val
-            print(f"Menghitung Unnamed: 16 dalam add_or_update_row: {unnamed_16_val}")
-            
-            # Hitung KLASIFIKASI berdasarkan IQ
-            # Formula: =@IFS(K4<79,"Rendah",K4<90,"Dibawah Rata-Rata",K4<110,"Rata-Rata",K4<120,"Diatas Rata-Rata",K4>119,"Superior")
-            if iq_val < 79:
-                row_data["KLASIFIKASI"] = "Rendah"
-            elif 79 <= iq_val < 90:
-                row_data["KLASIFIKASI"] = "Dibawah Rata-Rata"
-            elif 90 <= iq_val < 110:
-                row_data["KLASIFIKASI"] = "Rata-Rata"
-            elif 110 <= iq_val < 120:
-                row_data["KLASIFIKASI"] = "Diatas Rata-Rata"
-            else:
-                row_data["KLASIFIKASI"] = "Superior"
-            print(f"Menghitung KLASIFIKASI dalam add_or_update_row: {row_data['KLASIFIKASI']}")
-        
-        # Add PAPIKOSTICK values dengan pendekatan yang lebih langsung
-        papiko_columns = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", "C", "D", "R", "Z", "E", "K", "F", "W"]
-        
-        # Debug informasi kolom
-        print("DEBUG - Mapping PAPIKOSTICK ke kolom di tabel:")
-        
-        # Telusuri setiap kolom PAPIKOSTICK untuk menemukan indeks yang tepat
-        papiko_indices = {}
-        for col_name in papiko_columns:
-            for col_idx, table_col in enumerate(self.columns):
-                if table_col == col_name:
-                    papiko_indices[col_name] = col_idx
-                    print(f"DEBUG - Kolom {col_name} ada di indeks tabel {col_idx}")
-                    break
-        
-        # Telusuri setiap input field PAPIKOSTICK
-        for field_idx, field_label in enumerate(papiko_columns):
-            if field_idx < len(self.papikostick_inputs):
-                input_text = self.papikostick_inputs[field_idx].text().strip()
-                
-                # Pastikan kolom ada di tabel
-                if field_label in papiko_indices:
-                    col_idx = papiko_indices[field_label]
-                    
-                    # Skip kolom C (Coding) karena akan dihitung otomatis
-                    if field_label == "C (Coding)":
-                        print(f"DEBUG - Melewati kolom C (Coding)")
-                        continue
-                    
-                    # Pastikan input kosong menjadi "0" untuk X dan papiko lainnya
-                    if not input_text:
-                        # Untuk X, konversi kosong ke "0"
-                        input_text = "0"
-                    
-                    # Konversi ke tipe data yang sesuai (float/int)
-                    try:
-                        value = float(input_text)
-                        # Jika nilai bulat, simpan sebagai int
-                        if value.is_integer():
-                            row_data[self.columns[col_idx]] = int(value)
-                        else:
-                            row_data[self.columns[col_idx]] = value
-                    except ValueError:
-                        # Jika tidak bisa dikonversi, gunakan string
-                        row_data[self.columns[col_idx]] = input_text
-                    
-                    # Log khusus untuk kolom
-                    print(f"DEBUG - Menetapkan nilai kolom {field_label} ke {row_data[self.columns[col_idx]]}")
-        
-        # Determine action based on mode
-        if mode == "add":
-            # Add new row to the table
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            for col, column_name in enumerate(self.columns):
-                value = row_data.get(column_name, "")
-                
-                # Penanganan khusus untuk nilai X
-                if column_name == "X" and (value == "" or value == 0):
-                    value = 0
-                
-                # Penanganan khusus untuk kolom W
-                if column_name == "W":
-                    print(f"DEBUG - Setting W value in table to: '{value}'")
-                    # Pastikan nilai W disimpan dengan benar
-                    w_item = QTableWidgetItem()
-                    if isinstance(value, (int, float)):
-                        if isinstance(value, float) and value.is_integer():
-                            w_item.setData(Qt.DisplayRole, int(value))
-                        else:
-                            w_item.setData(Qt.DisplayRole, value)
-                    else:
-                        w_item.setText(str(value))
-                    
-                    self.table.setItem(row, col, w_item)
-                    continue  # Lanjutkan ke kolom berikutnya
+                    values[field_name] = value
 
-                # Penanganan khusus untuk kolom deskripsi psikogram
-                elif col >= 54 and col <= 65 and value:
-                    # Gunakan setText langsung untuk memastikan nilai teks dipertahankan
-                    psiko_item = QTableWidgetItem()
-                    psiko_item.setText(str(value))
-                    self.table.setItem(row, col, psiko_item)
-                    continue  # Lanjutkan ke kolom berikutnya
-                
-                # Penanganan untuk kolom-kolom lainnya
+            # Calculate IQ and Unnamed: 16
+            if all(values.get(field, "") != "" for field in ["SE / Konkrit Praktis", "WA/ Verbal", " AN / Flexibilitas Pikir", 
+                                                            "GE / Daya Abstraksi Verbal", "RA / Berpikir Praktis"]):
+                # Calculate IQ = SUM(L:P)/5
+                iq_values = [
+                    float(values.get("SE / Konkrit Praktis", 0)),
+                    float(values.get("WA/ Verbal", 0)),
+                    float(values.get(" AN / Flexibilitas Pikir", 0)),
+                    float(values.get("GE / Daya Abstraksi Verbal", 0)),
+                    float(values.get("RA / Berpikir Praktis", 0))
+                ]
+                values["IQ "] = sum(iq_values) / 5
+
+                # Calculate Unnamed: 16 = (AN + GE)/2
+                values["Unnamed: 16"] = (float(values.get(" AN / Flexibilitas Pikir", 0)) + 
+                                       float(values.get("GE / Daya Abstraksi Verbal", 0))) / 2
+
+                # Calculate KLASIFIKASI based on IQ
+                iq_value = values["IQ "]
+                if iq_value < 79:
+                    values["KLASIFIKASI"] = "Rendah"
+                elif iq_value < 90:
+                    values["KLASIFIKASI"] = "Dibawah Rata-Rata"
+                elif iq_value < 110:
+                    values["KLASIFIKASI"] = "Rata-Rata"
+                elif iq_value < 120:
+                    values["KLASIFIKASI"] = "Diatas Rata-Rata"
                 else:
-                    # Buat QTableWidgetItem dengan nilai untuk kolom lainnya
-                    table_item = QTableWidgetItem()
-                    
-                    # Jika nilai numerik (integer atau float), simpan sebagai numerik
-                    if isinstance(value, (int, float)):
-                        if isinstance(value, float) and value.is_integer():
-                            # Jika float tanpa desimal, konversi ke integer
-                            table_item.setData(Qt.DisplayRole, int(value))
-                        else:
-                            table_item.setData(Qt.DisplayRole, value)
-                    else:
-                        # Jika string atau lainnya, simpan sebagai string
-                        table_item.setText(str(value))
-                    
-                    self.table.setItem(row, col, table_item)
-            
-            # Recalculate values for the new row
-            self.recalculate_values(row)
-            
-        elif mode == "edit":
-            # Update existing row
-            selected_row = self.table.currentRow()
-            if selected_row >= 0:
-                for col, column_name in enumerate(self.columns):
-                    value = row_data.get(column_name, "")
-                    
-                    # Penanganan khusus untuk nilai X
-                    if column_name == "X" and (value == "" or value == 0):
-                        value = 0
-                    
-                    # Penanganan khusus untuk kolom W
-                    if column_name == "W":
-                        print(f"DEBUG - Updating W value in table to: '{value}'")
-                        # Pastikan nilai W disimpan dengan benar
-                        w_item = QTableWidgetItem()
-                        if isinstance(value, (int, float)):
-                            if isinstance(value, float) and value.is_integer():
-                                w_item.setData(Qt.DisplayRole, int(value))
-                            else:
-                                w_item.setData(Qt.DisplayRole, value)
-                        else:
-                            w_item.setText(str(value))
-                        
-                        self.table.setItem(selected_row, col, w_item)
-                        continue  # Lanjutkan ke kolom berikutnya
-    
-                    # Penanganan khusus untuk kolom deskripsi psikogram
-                    elif col >= 54 and col <= 65 and value:
-                        # Gunakan setText langsung untuk memastikan nilai teks dipertahankan
-                        psiko_item = QTableWidgetItem()
-                        psiko_item.setText(str(value))
-                        self.table.setItem(selected_row, col, psiko_item)
-                        continue  # Lanjutkan ke kolom berikutnya
-                    
-                    # Penanganan untuk kolom-kolom lainnya
-                    else:
-                        # Buat QTableWidgetItem dengan nilai untuk kolom lainnya
-                        table_item = QTableWidgetItem()
-                        
-                        # Jika nilai numerik (integer atau float), simpan sebagai numerik
-                        if isinstance(value, (int, float)):
-                            if isinstance(value, float) and value.is_integer():
-                                # Jika float tanpa desimal, konversi ke integer
-                                table_item.setData(Qt.DisplayRole, int(value))
-                            else:
-                                table_item.setData(Qt.DisplayRole, value)
-                        else:
-                            # Jika string atau lainnya, simpan sebagai string
-                            table_item.setText(str(value))
-                        
-                        self.table.setItem(selected_row, col, table_item)
-                
-                # Recalculate values for the edited row
-                self.recalculate_values(selected_row)
-            else:
-                print("No row selected for editing")
-                QMessageBox.warning(self, "Warning", "Tidak ada baris yang dipilih untuk diedit")
+                    values["KLASIFIKASI"] = "Superior"
 
-        # Clear input fields after adding/updating
-        for field in self.personal_inputs + self.ist_inputs + self.papikostick_inputs:
-            if isinstance(field, QLineEdit):
-                field.clear()
-            elif isinstance(field, QPushButton):
-                if field.text() not in ["Pilih Jenis Kelamin", "Pilih Tanggal"]:
-                    field.setText("Pilih Tanggal" if "Tanggal" in field.text() else field.text())
+            # Add PAPIKOSTICK values (kolom 18-38)
+            papiko_fields = ["N", "G", "A", "L", "P", "I", "T", "V", "S", "B", "O", "X", 
+                            "C", "D", "R", "Z", "E", "K", "F", "W"]  # Hapus "C (Coding)" dari list
+        
+            for i, field in enumerate(self.papikostick_inputs):
+                if i < len(papiko_fields):
+                    field_name = papiko_fields[i]
+                    value = field.text().strip()
+                    try:
+                        if value:
+                            float_value = float(value)
+                            values[field_name] = float_value
+                        else:
+                            values[field_name] = "0"
+                    except ValueError:
+                        values[field_name] = value
+
+                # Hitung C (Coding) berdasarkan nilai C
+                if "C" in values:
+                    try:
+                        c_val = float(values["C"])
+                        # Formula: =@IFS(AE4=1,9,AE4=2,8,AE4=3,7,AE4=4,6,AE4=5,5,AE4=6,4,AE4=7,3,AE4=8,2,AE4=9,1)
+                        c_coding_map = {
+                            1: 9,
+                            2: 8,
+                            3: 7,
+                            4: 6,
+                            5: 5,
+                            6: 4,
+                            7: 3,
+                            8: 2,
+                            9: 1
+                        }
+                        values["C (Coding)"] = c_coding_map.get(int(c_val), "")
+                        print(f"DEBUG - C (Coding) dihitung otomatis: {values['C (Coding)']} dari nilai C: {c_val}")
+                    except (ValueError, TypeError) as e:
+                        print(f"Error menghitung C (Coding): {e}")
+                        values["C (Coding)"] = ""
+
+                # Calculate derived PAPIKOSTICK values (kolom 39-44)
+                if all(values.get(field, "") != "" for field in ["S", "T"]):
+                    values["NG"] = (float(values.get("S", 0)) + float(values.get("T", 0))) / 2
+
+                if all(values.get(field, "") != "" for field in ["C", "D", "R"]):
+                    values["CDR"] = (float(values.get("C", 0)) + float(values.get("D", 0)) + float(values.get("R", 0))) / 3
+
+                if all(values.get(field, "") != "" for field in ["T", "V"]):
+                    values["TV"] = (float(values.get("T", 0)) + float(values.get("V", 0))) / 2
+
+                if all(values.get(field, "") != "" for field in ["P", "I"]):
+                    values["PI"] = (float(values.get("P", 0)) + float(values.get("I", 0))) / 2
+
+                if all(values.get(field, "") != "" for field in ["B", "S"]):
+                    values["BS"] = (float(values.get("B", 0)) + float(values.get("S", 0))) / 2
+
+                if all(values.get(field, "") != "" for field in ["Z", "K"]):
+                    values["ZK"] = (float(values.get("Z", 0)) + float(values.get("K", 0))) / 2
+
+                # Setelah perhitungan PAPIKOSTICK values dan sebelum menentukan mode add/edit, tambahkan:
+
+                # Calculate Psikogram values (kolom 45-57)
+                try:
+                    # Logika Berpikir 1 (kolom 45) dan Logika Berpikir 1.1
+                    if "SE / Konkrit Praktis" in values:
+                        se_val = float(values.get("SE / Konkrit Praktis", 0))
+                        # Untuk kolom asli
+                        if se_val < 80:
+                            values["Logika Berpikir 1"] = "R"
+                        elif se_val < 100:
+                            values["Logika Berpikir 1"] = "K"
+                        elif se_val < 120:
+                            values["Logika Berpikir 1"] = "C"
+                        elif se_val < 140:
+                            values["Logika Berpikir 1"] = "B"
+                        else:
+                            values["Logika Berpikir 1"] = "T"
+                        
+                        # Untuk kolom .1 (menggunakan referensi ke Sheet3)
+                        values["Logika Berpikir 1.1"] = self.get_sheet3_reference("Logika Berpikir 1", values["Logika Berpikir 1"])
+
+                    # Daya Analisa 3 (kolom 46) dan Daya Analisa 3.1
+                    if "WA/ Verbal" in values:
+                        wa_val = float(values.get("WA/ Verbal", 0))
+                        # Untuk kolom asli
+                        if wa_val < 80:
+                            values["Daya Analisa 3"] = "R"
+                        elif wa_val < 100:
+                            values["Daya Analisa 3"] = "K"
+                        elif wa_val < 120:
+                            values["Daya Analisa 3"] = "C"
+                        elif wa_val < 140:
+                            values["Daya Analisa 3"] = "B"
+                        else:
+                            values["Daya Analisa 3"] = "T"
+                        
+                        # Untuk kolom .1
+                        values["Daya Analisa 3.1"] = self.get_sheet3_reference("Daya Analisa 3", values["Daya Analisa 3"])
+
+                    # Kemampuan Verbal 2 dam 4 (kolom 47) dan Kemampuan Verbal 2 dam 4.1
+                    if "GE / Daya Abstraksi Verbal" in values:
+                        ge_val = float(values.get("GE / Daya Abstraksi Verbal", 0))
+                        # Untuk kolom asli
+                        if ge_val < 80:
+                            values["Kemampuan Verbal 2 dam 4"] = "R"
+                        elif ge_val < 100:
+                            values["Kemampuan Verbal 2 dam 4"] = "K"
+                        elif ge_val < 120:
+                            values["Kemampuan Verbal 2 dam 4"] = "C"
+                        elif ge_val < 140:
+                            values["Kemampuan Verbal 2 dam 4"] = "B"
+                        else:
+                            values["Kemampuan Verbal 2 dam 4"] = "T"
+                        
+                        # Untuk kolom .1
+                        values["Kemampuan Verbal 2 dam 4.1"] = self.get_sheet3_reference("Kemampuan Verbal 2 dam 4", values["Kemampuan Verbal 2 dam 4"])
+
+                    # Kemampuan Numerik 5 (kolom 48) dan Kemampuan Numerik 5.1
+                    if " AN / Flexibilitas Pikir" in values:
+                        an_val = float(values.get(" AN / Flexibilitas Pikir", 0))
+                        # Untuk kolom asli
+                        if an_val < 80:
+                            values["Kemampuan Numerik 5"] = "R"
+                        elif an_val < 100:
+                            values["Kemampuan Numerik 5"] = "K"
+                        elif an_val < 120:
+                            values["Kemampuan Numerik 5"] = "C"
+                        elif an_val < 140:
+                            values["Kemampuan Numerik 5"] = "B"
+                        else:
+                            values["Kemampuan Numerik 5"] = "T"
+                        
+                        # Untuk kolom .1
+                        values["Kemampuan Numerik 5.1"] = self.get_sheet3_reference("Kemampuan Numerik 5", values["Kemampuan Numerik 5"])
+
+                    # Sistematika Kerja/ C D R (kolom 49) dan Sistematika Kerja/ C D R.1
+                    if "CDR" in values:
+                        cdr_val = float(values.get("CDR", 0))
+                        # Untuk kolom asli
+                        if cdr_val < 2:
+                            values["Sistematika Kerja/ C D R"] = "R"
+                        elif cdr_val < 4:
+                            values["Sistematika Kerja/ C D R"] = "K"
+                        elif cdr_val < 6:
+                            values["Sistematika Kerja/ C D R"] = "C"
+                        elif cdr_val < 9:
+                            values["Sistematika Kerja/ C D R"] = "B"
+                        elif cdr_val == 9:
+                            values["Sistematika Kerja/ C D R"] = "T"
+                        
+                        # Untuk kolom .1
+                        values["Sistematika Kerja/ C D R.1"] = self.get_sheet3_reference("Sistematika Kerja/ C D R", values["Sistematika Kerja/ C D R"])
+
+                    # Orientasi Hasil/ N G (kolom 50) dan Orientasi Hasil/ N G.1
+                    if all(values.get(field, "") != "" for field in ["N", "G"]):
+                        n_val = float(values.get("N", 0))
+                        g_val = float(values.get("G", 0))
+                        ng_val = (n_val + g_val) / 2
+                        # Untuk kolom asli
+                        if ng_val < 2:
+                            values["Orientasi Hasil/ N G"] = "R"
+                        elif ng_val < 4:
+                            values["Orientasi Hasil/ N G"] = "K"
+                        elif ng_val < 6:
+                            values["Orientasi Hasil/ N G"] = "C"
+                        elif ng_val < 9:
+                            values["Orientasi Hasil/ N G"] = "B"
+                        elif ng_val == 9:
+                            values["Orientasi Hasil/ N G"] = "T"
+                        
+                        # Untuk kolom .1
+                        values["Orientasi Hasil/ N G.1"] = self.get_sheet3_reference("Orientasi Hasil/ N G", values["Orientasi Hasil/ N G"])
+
+                    # Fleksibilitas/ T V (kolom 51) dan Fleksibilitas/ T V.1
+                    if "TV" in values:
+                        tv_val = float(values.get("TV", 0))
+                        # Untuk kolom asli
+                        if tv_val < 2:
+                            values["Fleksibilitas/ T V"] = "R"
+                        elif tv_val < 4:
+                            values["Fleksibilitas/ T V"] = "K"
+                        elif tv_val < 6:
+                            values["Fleksibilitas/ T V"] = "C"
+                        elif tv_val < 9:
+                            values["Fleksibilitas/ T V"] = "B"
+                        elif tv_val == 9:
+                            values["Fleksibilitas/ T V"] = "T"
+                        
+                        # Untuk kolom .1
+                        values["Fleksibilitas/ T V.1"] = self.get_sheet3_reference("Fleksibilitas/ T V", values["Fleksibilitas/ T V"])
+
+                    # Motivasi Berprestasi/ A (kolom 52) dan Motivasi Berprestasi/ A.1
+                    if "A" in values:
+                        a_val = float(values.get("A", 0))
+                        # Untuk kolom asli
+                        if a_val < 2:
+                            values["Motivasi Berprestasi/ A"] = "R"
+                        elif a_val < 4:
+                            values["Motivasi Berprestasi/ A"] = "K"
+                        elif a_val < 6:
+                            values["Motivasi Berprestasi/ A"] = "C"
+                        elif a_val < 9:
+                            values["Motivasi Berprestasi/ A"] = "B"
+                        elif a_val == 9:
+                            values["Motivasi Berprestasi/ A"] = "T"
+                        
+                        # Untuk kolom .1
+                        values["Motivasi Berprestasi/ A.1"] = self.get_sheet3_reference("Motivasi Berprestasi/ A", values["Motivasi Berprestasi/ A"])
+
+                    # Kerjasama/ P I (kolom 53) dan Kerjasama/ P I.1
+                    if "PI" in values:
+                        pi_val = float(values.get("PI", 0))
+                        # Untuk kolom asli
+                        if pi_val < 2:
+                            values["Kerjasama/ P I"] = "R"
+                        elif pi_val < 4:
+                            values["Kerjasama/ P I"] = "K"
+                        elif pi_val < 6:
+                            values["Kerjasama/ P I"] = "C"
+                        elif pi_val < 9:
+                            values["Kerjasama/ P I"] = "B"
+                        elif pi_val == 9:
+                            values["Kerjasama/ P I"] = "T"
+                        
+                        # Untuk kolom .1
+                        values["Kerjasama/ P I.1"] = self.get_sheet3_reference("Kerjasama/ P I", values["Kerjasama/ P I"])
+
+                    # Keterampilan Interpersonal/ B S (kolom 54) dan Keterampilan Interpersonal/ B S.1
+                    if "BS" in values:
+                        bs_val = float(values.get("BS", 0))
+                        # Untuk kolom asli
+                        if bs_val < 2:
+                            values["Keterampilan Interpersonal/ B S"] = "R"
+                        elif bs_val < 4:
+                            values["Keterampilan Interpersonal/ B S"] = "K"
+                        elif bs_val < 6:
+                            values["Keterampilan Interpersonal/ B S"] = "C"
+                        elif bs_val < 9:
+                            values["Keterampilan Interpersonal/ B S"] = "B"
+                        elif bs_val == 9:
+                            values["Keterampilan Interpersonal/ B S"] = "T"
+                        
+                        # Untuk kolom .1
+                        values["Keterampilan Interpersonal/ B S.1"] = self.get_sheet3_reference("Keterampilan Interpersonal/ B S", values["Keterampilan Interpersonal/ B S"])
+
+                    # Stabilitas Emosi/ E PHQ (kolom 55) dan Stabilitas Emosi/ E PHQ.1
+                    if "E" in values:
+                        e_val = float(values.get("E", 0))
+                        # Untuk kolom asli
+                        if e_val < 2:
+                            values["Stabilitas Emosi/ E PHQ"] = "R"
+                        elif e_val < 4:
+                            values["Stabilitas Emosi/ E PHQ"] = "K"
+                        elif e_val < 6:
+                            values["Stabilitas Emosi/ E PHQ"] = "C"
+                        elif e_val < 9:
+                            values["Stabilitas Emosi/ E PHQ"] = "B"
+                        elif e_val == 9:
+                            values["Stabilitas Emosi/ E PHQ"] = "T"
+                        
+                        # Untuk kolom .1
+                        values["Stabilitas Emosi/ E PHQ.1"] = self.get_sheet3_reference("Stabilitas Emosi/ E PHQ", values["Stabilitas Emosi/ E PHQ"])
+
+                    # Pegembangan Diri/ W (kolom 56) dan Pegembangan Diri/ W.1
+                    if "W" in values:
+                        w_val = float(values.get("W", 0))
+                        # Untuk kolom asli
+                        if w_val < 2:
+                            values["Pegembangan Diri/ W"] = "R"
+                        elif w_val < 4:
+                            values["Pegembangan Diri/ W"] = "K"
+                        elif w_val < 6:
+                            values["Pegembangan Diri/ W"] = "C"
+                        elif w_val < 9:
+                            values["Pegembangan Diri/ W"] = "B"
+                        elif w_val == 9:
+                            values["Pegembangan Diri/ W"] = "T"
+                        
+                        # Untuk kolom .1
+                        values["Pegembangan Diri/ W.1"] = self.get_sheet3_reference("Pegembangan Diri/ W", values["Pegembangan Diri/ W"])
+
+                    # Mengelola Perubahan/ Z K (kolom 57) dan Mengelola Perubahan/ Z K.1
+                    if "ZK" in values:
+                        zk_val = float(values.get("ZK", 0))
+                        # Untuk kolom asli
+                        if zk_val < 2:
+                            values["Mengelola Perubahan/ Z K"] = "R"
+                        elif zk_val < 4:
+                            values["Mengelola Perubahan/ Z K"] = "K"
+                        elif zk_val < 6:
+                            values["Mengelola Perubahan/ Z K"] = "C"
+                        elif zk_val < 9:
+                            values["Mengelola Perubahan/ Z K"] = "B"
+                        elif zk_val == 9:
+                            values["Mengelola Perubahan/ Z K"] = "T"
+                        
+                        # Untuk kolom .1
+                        values["Mengelola Perubahan/ Z K.1"] = self.get_sheet3_reference("Mengelola Perubahan/ Z K", values["Mengelola Perubahan/ Z K"])
+
+                except Exception as e:
+                    print(f"Error calculating psikogram values: {e}")
+            
+            # Determine action based on mode
+            if mode == "add":
+                row = self.table.rowCount()
+                self.table.insertRow(row)
+            elif mode == "edit":
+                row = self.table.currentRow()
+                if row < 0:
+                    print("No row selected for editing")
+                    QMessageBox.warning(self, "Warning", "Tidak ada baris yang dipilih untuk diedit")
+                    return
+
+            # Populate all columns
+            for col_name in self.columns:
+                col_idx = self.get_column_index(col_name)
+                if col_idx >= 0:
+                    value = values.get(col_name, "")
+                    self.table.setItem(row, col_idx, QTableWidgetItem(str(value)))
+
+            # Clear input fields after adding/updating
+            for field in self.personal_inputs + self.ist_inputs + self.papikostick_inputs:
+                if isinstance(field, QLineEdit):
+                    field.clear()
+                elif isinstance(field, QPushButton):
+                    if field.text() not in ["Pilih Jenis Kelamin", "Pilih Tanggal"]:
+                        field.setText("Pilih Tanggal" if "Tanggal" in field.text() else field.text())
+
+            # Recalculate values for the row
+            self.recalculate_values(row)
+
+        except Exception as e:
+            print(f"Error in add_or_update_row: {e}")
+            import traceback
+            traceback.print_exc()
+            # QMessageBox.critical(self, "Error", f"Terjadi kesalahan: {str(e)}")
 
     def recalculate_values(self, row):
         try:
-            # Simpan nilai W sebelum perhitungan untuk memastikan tidak berubah
-            original_w_value = self.get_cell_text(row, 36)
+            # Simpan nilai W sebelum perhitungan
+            original_w_value = self.get_w_value(row)
             print(f"DEBUG - Nilai W SEBELUM perhitungan: '{original_w_value}'")
             
             # Hitung nilai IQ = SUM(L4:P4)/5
@@ -1265,7 +1446,6 @@ class ExcelViewerApp(QWidget):
                         print(f"Menghitung Unnamed: 16 = (AN + GE)/2: {unnamed_16_val}")
                     
                     # Hitung KLASIFIKASI berdasarkan IQ
-                    # Formula: =@IFS(K4<79,"Rendah",K4<90,"Dibawah Rata-Rata",K4<110,"Rata-Rata",K4<120,"Diatas Rata-Rata",K4>119,"Superior")
                     if iq_val < 79:
                         iq_klasifikasi = "Rendah"
                     elif 79 <= iq_val < 90:
@@ -1424,20 +1604,23 @@ class ExcelViewerApp(QWidget):
                     self.table.setItem(row, zk_idx, zk_item)
                     print(f"Formula normal untuk kolom {zk_idx}: ZK = (Z + K) / 2")
             
-            # Update nilai W (posisi terakhir)
-            w_idx = self.get_column_index("W")
-            if w_idx >= 0:
-                original_w_value_adjusted = original_w_value.strip() if original_w_value else "0"
-                if not original_w_value_adjusted:
-                    original_w_value_adjusted = "0"
-                    
-                self.table.setItem(row, w_idx, QTableWidgetItem(original_w_value_adjusted))
-                print(f"DEBUG - Nilai W SETELAH perhitungan: '{original_w_value_adjusted}'")
+            # Kembalikan nilai W ke nilai asli
+            self.set_w_value(row, original_w_value)
+            print(f"DEBUG - Nilai W SETELAH perhitungan: '{original_w_value}'")
                 
         except Exception as e:
             print(f"Error dalam recalculate_values: {e}")
             import traceback
             traceback.print_exc()
+
+    def get_papiko_index(self, code):
+        """Helper function untuk mendapatkan indeks PAPIKOSTICK berdasarkan kode"""
+        papiko_map = {
+            'N': 0, 'G': 1, 'A': 2, 'L': 3, 'P': 4, 'I': 5, 'T': 6, 'V': 7,
+            'S': 8, 'B': 9, 'O': 10, 'X': 11, 'C': 12, 'D': 13, 'R': 14,
+            'Z': 15, 'E': 16, 'K': 17, 'F': 18, 'W': 38  # Ubah indeks W ke 38
+        }
+        return papiko_map.get(code)
 
     def get_cell_value(self, row, col):
         item = self.table.item(row, col)
@@ -1648,30 +1831,21 @@ class ExcelViewerApp(QWidget):
                 
                 # Cek dan tambahkan formula yang umum digunakan di kolom psikogram jika belum ada
                 missing_psikogram_formulas = {
-                    43: "=IF(L{row}<80,\"R\",IF(L{row}<100,\"K\",IF(L{row}<120,\"C\",IF(L{row}<140,\"B\",\"T\"))))",  # Logika Berpikir 1
-                    44: "=IF(M{row}<80,\"R\",IF(M{row}<100,\"K\",IF(M{row}<120,\"C\",IF(M{row}<140,\"B\",\"T\"))))",  # Daya Analisa 3
-                    45: "=IF(O{row}<80,\"R\",IF(O{row}<100,\"K\",IF(O{row}<120,\"C\",IF(O{row}<140,\"B\",\"T\"))))",  # Kemampuan Verbal 2 dam 4
-                    46: "=IF(N{row}<80,\"R\",IF(N{row}<100,\"K\",IF(N{row}<120,\"C\",IF(N{row}<140,\"B\",\"T\"))))",  # Kemampuan Numerik 5
-                    47: "=IF(M{row}<80,\"R\",IF(M{row}<100,\"K\",IF(M{row}<120,\"C\",IF(M{row}<140,\"B\",\"T\"))))",  # Inisiatif
-                    48: "=@IFS(AO{row}<2,\"R\",AO{row}<4,\"K\",AO{row}<6,\"C\",AO{row}<9,\"B\",AO{row}=9,\"T\")",  # Sistematika Kerja/ C D R
-                    49: "=@IFS(AN{row}<2,\"R\",AN{row}<4,\"K\",AN{row}<6,\"C\",AN{row}<9,\"B\",AN{row}=9,\"T\")",  # Orientasi Hasil/ N G
-                    50: "=@IFS(AP{row}<2,\"R\",AP{row}<4,\"K\",AP{row}<6,\"C\",AP{row}<9,\"B\",AP{row}=9,\"T\")",  # Fleksibilitas/ T V
-                    51: "=@IFS(U{row}<2,\"R\",U{row}<4,\"K\",U{row}<6,\"C\",U{row}<9,\"B\",U{row}=9,\"T\")",  # Motivasi Berprestasi/ A
-                    52: "=@IFS(AQ{row}<2,\"R\",AQ{row}<4,\"K\",AQ{row}<6,\"C\",AQ{row}<9,\"B\",AQ{row}=9,\"T\")",  # Kerjasama/ P I
-                    53: "=@IFS(AR{row}<2,\"R\",AR{row}<4,\"K\",AR{row}<6,\"C\",AR{row}<9,\"B\",AR{row}=9,\"T\")",  # Keterampilan Interpersonal/ B S
-                    54: "=@IFS(AJ{row}<2,\"R\",AJ{row}<4,\"K\",AJ{row}<6,\"C\",AJ{row}<9,\"B\",AJ{row}=9,\"T\")",  # Stabilitas Emosi/ E PHQ
-                    55: "=@IFS(AM{row}<2,\"R\",AM{row}<4,\"K\",AM{row}<6,\"C\",AM{row}<9,\"B\",AM{row}=9,\"T\")",  # Pegembangan Diri/ W
-                    56: "=@IFS(AS{row}<2,\"R\",AS{row}<4,\"K\",AS{row}<6,\"C\",AS{row}<9,\"B\",AS{row}=9,\"T\")",  # Mengelola Perubahan/ Z K
-                    57: "=IFS(AS{row}=\"B\",Sheet2!$D$9,AS{row}=\"C\",Sheet2!$D$10,AS{row}=\"K\",Sheet2!$D$11)",  # Kemampuan Verbal/WA GE.1
-                    58: "=IFS(AT{row}=\"B\",Sheet2!$D$12,AT{row}=\"C\",Sheet2!$D$13,AT{row}=\"K\",Sheet2!$D$14)",  # Kemampuan Numerik/ RA ZR.1
-                    59: "=IFS(AU{row}=\"B\",Sheet2!$D$15,AU{row}=\"C\",Sheet2!$D$16,AU{row}=\"K\",Sheet2!$D$17)",  # Daya Ingat/ME.1
-                    60: "=IFS(AV{row}=\"B\",Sheet2!$D$18,AV{row}=\"C\",Sheet2!$D$19,AV{row}=\"K\",Sheet2!$D$20)",  # Fleksibilitas
-                    61: "=IFS(AW{row}=\"B\",Sheet2!$D$21,AW{row}=\"C\",Sheet2!$D$22,AW{row}=\"K\",Sheet2!$D$23)",  # Sistematika Kerja/ cd.1
-                    62: "=IFS(AX{row}=\"B\",Sheet2!$D$24,AX{row}=\"C\",Sheet2!$D$25,AX{row}=\"K\",Sheet2!$D$26)",  # Inisiatif/W.1
-                    63: "=IFS(AY{row}=\"B\",Sheet2!$D$27,AY{row}=\"C\",Sheet2!$D$28,AY{row}=\"K\",Sheet2!$D$29)",  # Stabilitas Emosi / E.1
-                    64: "=IFS(AZ{row}=\"B\",Sheet2!$D$30,AZ{row}=\"C\",Sheet2!$D$31,AZ{row}=\"K\",Sheet2!$D$32)",  # Komunikasi / B O.1
-                    65: "=IFS(BA{row}=\"B\",Sheet2!$D$33,BA{row}=\"C\",Sheet2!$D$34,BA{row}=\"K\",Sheet2!$D$35)",  # Keterampilan Sosial
-                    66: "=IFS(BB{row}=\"B\",Sheet2!$D$36,BB{row}=\"C\",Sheet2!$D$37,BB{row}=\"K\",Sheet2!$D$38)"   # Kerjasama
+                    # Formulas for columns 45-57
+                    # Using the exact columns specified
+                    45: "=IF(L{row}<80,\"R\",IF(L{row}<100,\"K\",IF(L{row}<120,\"C\",IF(L{row}<140,\"B\",\"T\"))))",  # Logika Berpikir 1
+                    46: "=IF(M{row}<80,\"R\",IF(M{row}<100,\"K\",IF(M{row}<120,\"C\",IF(M{row}<140,\"B\",\"T\"))))",  # Daya Analisa 3
+                    47: "=IF(O{row}<80,\"R\",IF(O{row}<100,\"K\",IF(O{row}<120,\"C\",IF(O{row}<140,\"B\",\"T\"))))",  # Kemampuan Verbal 2 dam 4
+                    48: "=IF(N{row}<80,\"R\",IF(N{row}<100,\"K\",IF(N{row}<120,\"C\",IF(N{row}<140,\"B\",\"T\"))))",  # Kemampuan Numerik 5
+                    49: "=@IFS(AO{row}<2,\"R\",AO{row}<4,\"K\",AO{row}<6,\"C\",AO{row}<9,\"B\",AO{row}=9,\"T\")",  # Sistematika Kerja/ C D R
+                    50: "=@IFS(AN{row}<2,\"R\",AN{row}<4,\"K\",AN{row}<6,\"C\",AN{row}<9,\"B\",AN{row}=9,\"T\")",  # Orientasi Hasil/ N G
+                    51: "=@IFS(AP{row}<2,\"R\",AP{row}<4,\"K\",AP{row}<6,\"C\",AP{row}<9,\"B\",AP{row}=9,\"T\")",  # Fleksibilitas/ T V
+                    52: "=@IFS(U{row}<2,\"R\",U{row}<4,\"K\",U{row}<6,\"C\",U{row}<9,\"B\",U{row}=9,\"T\")",  # Motivasi Berprestasi/ A
+                    53: "=@IFS(AQ{row}<2,\"R\",AQ{row}<4,\"K\",AQ{row}<6,\"C\",AQ{row}<9,\"B\",AQ{row}=9,\"T\")",  # Kerjasama/ P I
+                    54: "=@IFS(AR{row}<2,\"R\",AR{row}<4,\"K\",AR{row}<6,\"C\",AR{row}<9,\"B\",AR{row}=9,\"T\")",  # Keterampilan Interpersonal/ B S
+                    55: "=@IFS(AJ{row}<2,\"R\",AJ{row}<4,\"K\",AJ{row}<6,\"C\",AJ{row}<9,\"B\",AJ{row}=9,\"T\")",  # Stabilitas Emosi/ E PHQ
+                    56: "=@IFS(AM{row}<2,\"R\",AM{row}<4,\"K\",AM{row}<6,\"C\",AM{row}<9,\"B\",AM{row}=9,\"T\")",  # Pegembangan Diri/ W
+                    57: "=@IFS(AS{row}<2,\"R\",AS{row}<4,\"K\",AS{row}<6,\"C\",AS{row}<9,\"B\",AS{row}=9,\"T\")",  # Mengelola Perubahan/ Z K
                 }
                 
                 # Tambahkan formula dari file asli jika ditemukan di kolom mana pun
@@ -2640,7 +2814,6 @@ class ExcelViewerApp(QWidget):
                 QMessageBox.information(self, "Pemulihan", f"File dikembalikan dari backup: {latest_backup}")
             except Exception as restore_error:
                 print(f"Error restoring from backup: {restore_error}")
-
     def get_column_index(self, column_name):
         # Search for exact match first
         try:
@@ -3565,6 +3738,301 @@ class ExcelViewerApp(QWidget):
             'ZK': f"=(AI{row_number}+AK{row_number})/2",
         }
         return formulas
+    def set_formulas_direct(self, sheet, header_row):
+        """
+        Fungsi untuk mengatur formula Excel secara langsung pada sheet
+        """
+        try:
+            # Looping untuk setiap baris data (di bawah header)
+            for row_idx in range(header_row + 1, sheet.max_row + 1):
+                # Formula untuk SDR/SDRI
+                sdr_sdri_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("SDR/SDRI"))
+                sdr_sdri_cell.value = f'=IF(F{row_idx}="P","Sdri.","Sdr.")'
+                
+                # Formula untuk Keterangan PHQ
+                ket_phq_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("Keterangan PHQ"))
+                ket_phq_cell.value = f'=IFS(I{row_idx}<5,"Tidak ada",I{row_idx}<10,"Ringan",I{row_idx}<15,"Sedang",I{row_idx}<20,"Cukup Berat",I{row_idx}<28,"Parah")'
+                
+                # Formula untuk IQ
+                iq_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("IQ "))
+                iq_cell.value = f'=SUM(L{row_idx}:P{row_idx})/5'
+                
+                # Formula untuk Unnamed: 16
+                unnamed_16_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("Unnamed: 16"))
+                unnamed_16_cell.value = f'=(M{row_idx}+O{row_idx})/2'
+                
+                # Formula untuk KLASIFIKASI
+                klasifikasi_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("KLASIFIKASI"))
+                klasifikasi_cell.value = f'=IFS(K{row_idx}<79,"Rendah",K{row_idx}<90,"Dibawah Rata-Rata",K{row_idx}<110,"Rata-Rata",K{row_idx}<120,"Diatas Rata-Rata",K{row_idx}>119,"Superior")'
+                
+                # Formula untuk C (Coding)
+                c_coding_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("C (Coding)"))
+                c_coding_cell.value = f'=IFS(AE{row_idx}=1,9,AE{row_idx}=2,8,AE{row_idx}=3,7,AE{row_idx}=4,6,AE{row_idx}=5,5,AE{row_idx}=6,4,AE{row_idx}=7,3,AE{row_idx}=8,2,AE{row_idx}=9,1)'
+                
+                # Formula untuk NG
+                ng_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("NG"))
+                ng_cell.value = f'=(S{row_idx}+T{row_idx})/2'
+                
+                # Formula untuk CDR
+                cdr_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("CDR"))
+                cdr_cell.value = f'=(AE{row_idx}+AG{row_idx}+AH{row_idx})/3'
+                
+                # Formula untuk TV
+                tv_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("TV"))
+                tv_cell.value = f'=(Y{row_idx}+Z{row_idx})/2'
+                
+                # Formula untuk PI
+                pi_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("PI"))
+                pi_cell.value = f'=(W{row_idx}+X{row_idx})/2'
+                
+                # Formula untuk BS
+                bs_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("BS"))
+                bs_cell.value = f'=(AA{row_idx}+AB{row_idx})/2'
+                
+                # Formula untuk ZK
+                zk_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("ZK"))
+                zk_cell.value = f'=(AI{row_idx}+AK{row_idx})/2'
+
+                # Formula untuk Logika Berpikir 1
+                logika_cell = sheet.cell(row=row_idx, column=45)
+                logika_cell.value = f'=IF(L{row_idx}<80,"R",IF(L{row_idx}<100,"K",IF(L{row_idx}<120,"C",IF(L{row_idx}<140,"B","T"))))'
+
+                # Formula untuk Daya Analisa 3
+                analisa_cell = sheet.cell(row=row_idx, column=46)
+                analisa_cell.value = f'=IF(M{row_idx}<80,"R",IF(M{row_idx}<100,"K",IF(M{row_idx}<120,"C",IF(M{row_idx}<140,"B","T"))))'
+
+                # Formula untuk Kemampuan Verbal 2 dam 4
+                verbal_cell = sheet.cell(row=row_idx, column=47)
+                
+                # Formulasi baru untuk kolom 45-57
+                # Column 45: Logika Berpikir 1
+                try:
+                    logika_cell = sheet.cell(row=row_idx, column=45)
+                    logika_cell.value = f'=IF(L{row_idx}<80,"R",IF(L{row_idx}<100,"K",IF(L{row_idx}<120,"C",IF(L{row_idx}<140,"B","T"))))'
+                except Exception as e:
+                    print(f"Error setting Logika Berpikir formula: {e}")
+                
+                # Column 46: Daya Analisa 3
+                try:
+                    daya_analisa_cell = sheet.cell(row=row_idx, column=46)
+                    daya_analisa_cell.value = f'=IF(M{row_idx}<80,"R",IF(M{row_idx}<100,"K",IF(M{row_idx}<120,"C",IF(M{row_idx}<140,"B","T"))))'
+                except Exception as e:
+                    print(f"Error setting Daya Analisa formula: {e}")
+                
+                # Column 47: Kemampuan Verbal 2 dam 4
+                try:
+                    verbal_cell = sheet.cell(row=row_idx, column=47)
+                    verbal_cell.value = f'=IF(O{row_idx}<80,"R",IF(O{row_idx}<100,"K",IF(O{row_idx}<120,"C",IF(O{row_idx}<140,"B","T"))))'
+                except Exception as e:
+                    print(f"Error setting Kemampuan Verbal formula: {e}")
+                
+                # Column 48: Kemampuan Numerik 5
+                try:
+                    numerik_cell = sheet.cell(row=row_idx, column=48)
+                    numerik_cell.value = f'=IF(N{row_idx}<80,"R",IF(N{row_idx}<100,"K",IF(N{row_idx}<120,"C",IF(N{row_idx}<140,"B","T"))))'
+                except Exception as e:
+                    print(f"Error setting Kemampuan Numerik formula: {e}")
+                
+                # Column 49: Sistematika Kerja/ C D R
+                try:
+                    sistematika_cell = sheet.cell(row=row_idx, column=49)
+                    sistematika_cell.value = f'=IFS(AO{row_idx}<2,"R",AO{row_idx}<4,"K",AO{row_idx}<6,"C",AO{row_idx}<9,"B",AO{row_idx}=9,"T")'
+                except Exception as e:
+                    print(f"Error setting Sistematika Kerja formula: {e}")
+                
+                # Column 50: Orientasi Hasil/ N G
+                try:
+                    orientasi_cell = sheet.cell(row=row_idx, column=50)
+                    orientasi_cell.value = f'=IFS(AN{row_idx}<2,"R",AN{row_idx}<4,"K",AN{row_idx}<6,"C",AN{row_idx}<9,"B",AN{row_idx}=9,"T")'
+                except Exception as e:
+                    print(f"Error setting Orientasi Hasil formula: {e}")
+                
+                # Column 51: Fleksibilitas/ T V
+                try:
+                    fleksibilitas_cell = sheet.cell(row=row_idx, column=51)
+                    fleksibilitas_cell.value = f'=IFS(AP{row_idx}<2,"R",AP{row_idx}<4,"K",AP{row_idx}<6,"C",AP{row_idx}<9,"B",AP{row_idx}=9,"T")'
+                except Exception as e:
+                    print(f"Error setting Fleksibilitas formula: {e}")
+                
+                # Column 52: Motivasi Berprestasi/ A
+                try:
+                    motivasi_cell = sheet.cell(row=row_idx, column=52)
+                    motivasi_cell.value = f'=IFS(U{row_idx}<2,"R",U{row_idx}<4,"K",U{row_idx}<6,"C",U{row_idx}<9,"B",U{row_idx}=9,"T")'
+                except Exception as e:
+                    print(f"Error setting Motivasi Berprestasi formula: {e}")
+                
+                # Column 53: Kerjasama/ P I
+                try:
+                    kerjasama_cell = sheet.cell(row=row_idx, column=53)
+                    kerjasama_cell.value = f'=IFS(AQ{row_idx}<2,"R",AQ{row_idx}<4,"K",AQ{row_idx}<6,"C",AQ{row_idx}<9,"B",AQ{row_idx}=9,"T")'
+                except Exception as e:
+                    print(f"Error setting Kerjasama formula: {e}")
+                
+                # Column 54: Keterampilan Interpersonal/ B S
+                try:
+                    interpersonal_cell = sheet.cell(row=row_idx, column=54)
+                    interpersonal_cell.value = f'=IFS(AR{row_idx}<2,"R",AR{row_idx}<4,"K",AR{row_idx}<6,"C",AR{row_idx}<9,"B",AR{row_idx}=9,"T")'
+                except Exception as e:
+                    print(f"Error setting Keterampilan Interpersonal formula: {e}")
+                
+                # Column 55: Stabilitas Emosi/ E PHQ
+                try:
+                    emosi_cell = sheet.cell(row=row_idx, column=55)
+                    emosi_cell.value = f'=IFS(AJ{row_idx}<2,"R",AJ{row_idx}<4,"K",AJ{row_idx}<6,"C",AJ{row_idx}<9,"B",AJ{row_idx}=9,"T")'
+                except Exception as e:
+                    print(f"Error setting Stabilitas Emosi formula: {e}")
+                
+                # Column 56: Pegembangan Diri/ W
+                try:
+                    diri_cell = sheet.cell(row=row_idx, column=56)
+                    diri_cell.value = f'=IFS(AM{row_idx}<2,"R",AM{row_idx}<4,"K",AM{row_idx}<6,"C",AM{row_idx}<9,"B",AM{row_idx}=9,"T")'
+                except Exception as e:
+                    print(f"Error setting Pegembangan Diri formula: {e}")
+                
+                # Column 57: Mengelola Perubahan/ Z K
+                try:
+                    perubahan_cell = sheet.cell(row=row_idx, column=57)
+                    perubahan_cell.value = f'=IFS(AS{row_idx}<2,"R",AS{row_idx}<4,"K",AS{row_idx}<6,"C",AS{row_idx}<9,"B",AS{row_idx}=9,"T")'
+                except Exception as e:
+                    print(f"Error setting Mengelola Perubahan formula: {e}")
+            
+            print("Formula berhasil diaplikasikan langsung ke sheet Excel")
+            return True
+        except Exception as e:
+            print(f"Error saat menerapkan formula: {e}")
+            return False
+    
+    def get_excel_column_index(self, column_name):
+        """
+        Mendapatkan indeks kolom Excel (1-based) dari nama kolom
+        """
+        try:
+            # Cari indeks kolom (0-based)
+            idx = self.get_column_index(column_name)
+            # Konversi ke indeks Excel (1-based)
+            return idx + 1 if idx >= 0 else None
+        except Exception as e:
+            print(f"Error mendapatkan indeks kolom Excel: {e}")
+            return None
+
+    def apply_psikogram_formulas(self, sheet, row_idx):
+        """
+        Menerapkan rumus-rumus psikogram untuk baris tertentu
+        """
+        try:
+            # Logika Berpikir 1
+            logika_cell = sheet.cell(row=row_idx, column=45)
+            logika_cell.value = f'=IF(L{row_idx}<80,"R",IF(L{row_idx}<100,"K",IF(L{row_idx}<120,"C",IF(L{row_idx}<140,"B","T"))))'
+
+            # Daya Analisa 3
+            analisa_cell = sheet.cell(row=row_idx, column=46)
+            analisa_cell.value = f'=IF(M{row_idx}<80,"R",IF(M{row_idx}<100,"K",IF(M{row_idx}<120,"C",IF(M{row_idx}<140,"B","T"))))'
+
+            # Kemampuan Verbal 2 dam 4
+            verbal_cell = sheet.cell(row=row_idx, column=47)
+            verbal_cell.value = f'=IF(O{row_idx}<80,"R",IF(O{row_idx}<100,"K",IF(O{row_idx}<120,"C",IF(O{row_idx}<140,"B","T"))))'
+
+            # Kemampuan Numerik 5
+            numerik_cell = sheet.cell(row=row_idx, column=48)
+            numerik_cell.value = f'=IF(N{row_idx}<80,"R",IF(N{row_idx}<100,"K",IF(N{row_idx}<120,"C",IF(N{row_idx}<140,"B","T"))))'
+
+            # Sistematika Kerja/ C D R
+            sistematika_cell = sheet.cell(row=row_idx, column=49)
+            sistematika_cell.value = f'=IFS(AO{row_idx}<2,"R",AO{row_idx}<4,"K",AO{row_idx}<6,"C",AO{row_idx}<9,"B",AO{row_idx}=9,"T")'
+
+            # Orientasi Hasil/ N G
+            orientasi_cell = sheet.cell(row=row_idx, column=50)
+            orientasi_cell.value = f'=IFS(AN{row_idx}<2,"R",AN{row_idx}<4,"K",AN{row_idx}<6,"C",AN{row_idx}<9,"B",AN{row_idx}=9,"T")'
+
+            # Fleksibilitas/ T V
+            fleksibilitas_cell = sheet.cell(row=row_idx, column=51)
+            fleksibilitas_cell.value = f'=IFS(AP{row_idx}<2,"R",AP{row_idx}<4,"K",AP{row_idx}<6,"C",AP{row_idx}<9,"B",AP{row_idx}=9,"T")'
+
+            # Motivasi Berprestasi/ A
+            motivasi_cell = sheet.cell(row=row_idx, column=52)
+            motivasi_cell.value = f'=IFS(U{row_idx}<2,"R",U{row_idx}<4,"K",U{row_idx}<6,"C",U{row_idx}<9,"B",U{row_idx}=9,"T")'
+
+            # Kerjasama/ P I
+            kerjasama_cell = sheet.cell(row=row_idx, column=53)
+            kerjasama_cell.value = f'=IFS(AQ{row_idx}<2,"R",AQ{row_idx}<4,"K",AQ{row_idx}<6,"C",AQ{row_idx}<9,"B",AQ{row_idx}=9,"T")'
+
+            # Keterampilan Interpersonal/ B S
+            interpersonal_cell = sheet.cell(row=row_idx, column=54)
+            interpersonal_cell.value = f'=IFS(AR{row_idx}<2,"R",AR{row_idx}<4,"K",AR{row_idx}<6,"C",AR{row_idx}<9,"B",AR{row_idx}=9,"T")'
+
+            # Stabilitas Emosi/ E PHQ
+            emosi_cell = sheet.cell(row=row_idx, column=55)
+            emosi_cell.value = f'=IFS(AJ{row_idx}<2,"R",AJ{row_idx}<4,"K",AJ{row_idx}<6,"C",AJ{row_idx}<9,"B",AJ{row_idx}=9,"T")'
+
+            # Pegembangan Diri/ W
+            pengembangan_cell = sheet.cell(row=row_idx, column=56)
+            pengembangan_cell.value = f'=IFS(AM{row_idx}<2,"R",AM{row_idx}<4,"K",AM{row_idx}<6,"C",AM{row_idx}<9,"B",AM{row_idx}=9,"T")'
+
+            # Mengelola Perubahan/ Z K
+            perubahan_cell = sheet.cell(row=row_idx, column=57)
+            perubahan_cell.value = f'=IFS(AS{row_idx}<2,"R",AS{row_idx}<4,"K",AS{row_idx}<6,"C",AS{row_idx}<9,"B",AS{row_idx}=9,"T")'
+
+            # Kolom 58-70: Formula untuk kolom .1
+            try:
+                # Logika Berpikir 1.1 (kolom 58)
+                logika_cell = sheet.cell(row=row_idx, column=58)
+                logika_cell.value = f'=IF(AT{row_idx}="R",Sheet3!$F$30,IF(AT{row_idx}="K",Sheet3!$F$31,IF(AT{row_idx}="C",Sheet3!$F$32,IF(AT{row_idx}="B",Sheet3!$F$33,IF(AT{row_idx}="T",Sheet3!$F$34)))))'
+
+                # Daya Analisa 3.1 (kolom 59)
+                analisa_cell = sheet.cell(row=row_idx, column=59)
+                analisa_cell.value = f'=IF(AU{row_idx}="R",Sheet3!$F$35,IF(AU{row_idx}="K",Sheet3!$F$36,IF(AU{row_idx}="C",Sheet3!$F$37,IF(AU{row_idx}="B",Sheet3!$F$38,IF(AU{row_idx}="T",Sheet3!$F$389)))))'
+
+                # Kemampuan Verbal 2 dam 4.1 (kolom 60)
+                verbal_cell = sheet.cell(row=row_idx, column=60)
+                verbal_cell.value = f'=IF(AV{row_idx}="R",Sheet3!$F$45,IF(AV{row_idx}="K",Sheet3!$F$46,IF(AV{row_idx}="C",Sheet3!$F$47,IF(AV{row_idx}="B",Sheet3!$F$48,IF(AV{row_idx}="T",Sheet3!$F$49)))))'
+
+                # Kemampuan Numerik 5.1 (kolom 61)
+                numerik_cell = sheet.cell(row=row_idx, column=61)
+                numerik_cell.value = f'=IF(AW{row_idx}="R",Sheet3!$F$40,IF(AW{row_idx}="K",Sheet3!$F$41,IF(AW{row_idx}="C",Sheet3!$F$42,IF(AW{row_idx}="B",Sheet3!$F$43,IF(AW{row_idx}="T",Sheet3!$F$44)))))'
+
+                # Sistematika Kerja/ C D R.1 (kolom 62)
+                sistematika_cell = sheet.cell(row=row_idx, column=62)
+                sistematika_cell.value = f'=IF(AX{row_idx}="R",Sheet3!$F$60,IF(AX{row_idx}="K",Sheet3!$F$61,IF(AX{row_idx}="C",Sheet3!$F$62,IF(AX{row_idx}="B",Sheet3!$F$63,IF(AX{row_idx}="T",Sheet3!$F$64)))))'
+
+                # Orientasi Hasil/ N G.1 (kolom 63)
+                orientasi_cell = sheet.cell(row=row_idx, column=63)
+                orientasi_cell.value = f'=IF(AY{row_idx}="R",Sheet3!$F$50,IF(AY{row_idx}="K",Sheet3!$F$51,IF(AY{row_idx}="C",Sheet3!$F$52,IF(AY{row_idx}="B",Sheet3!$F$53,IF(AY{row_idx}="T",Sheet3!$F$54)))))'
+
+                # Fleksibilitas/ T V.1 (kolom 64)
+                fleksibilitas_cell = sheet.cell(row=row_idx, column=64)
+                fleksibilitas_cell.value = f'=IF(AZ{row_idx}="R",Sheet3!$F$55,IF(AZ{row_idx}="K",Sheet3!$F$56,IF(AZ{row_idx}="C",Sheet3!$F$57,IF(AZ{row_idx}="B",Sheet3!$F$58,IF(AZ{row_idx}="T",Sheet3!$F$59)))))'
+
+                # Motivasi Berprestasi/ A.1 (kolom 65)
+                motivasi_cell = sheet.cell(row=row_idx, column=65)
+                motivasi_cell.value = f'=IF(BA{row_idx}="R",Sheet3!$F$65,IF(BA{row_idx}="K",Sheet3!$F$66,IF(BA{row_idx}="C",Sheet3!$F$67,IF(BA{row_idx}="B",Sheet3!$F$68,IF(BA{row_idx}="T",Sheet3!$F$69)))))'
+
+                # Kerjasama/ P I.1 (kolom 66)
+                kerjasama_cell = sheet.cell(row=row_idx, column=66)
+                kerjasama_cell.value = f'=IF(BB{row_idx}="R",Sheet3!$F$70,IF(BB{row_idx}="K",Sheet3!$F$71,IF(BB{row_idx}="C",Sheet3!$F$72,IF(BB{row_idx}="B",Sheet3!$F$73,IF(BB{row_idx}="T",Sheet3!$F$74)))))'
+
+                # Keterampilan Interpersonal/ B S.1 (kolom 67)
+                interpersonal_cell = sheet.cell(row=row_idx, column=67)
+                interpersonal_cell.value = f'=IF(BC{row_idx}="R",Sheet3!$F$75,IF(BC{row_idx}="K",Sheet3!$F$76,IF(BC{row_idx}="C",Sheet3!$F$77,IF(BC{row_idx}="B",Sheet3!$F$78,IF(BC{row_idx}="T",Sheet3!$F$79)))))'
+
+                # Stabilitas Emosi/ E PHQ.1 (kolom 68)
+                emosi_cell = sheet.cell(row=row_idx, column=68)
+                emosi_cell.value = f'=IF(BD{row_idx}="R",Sheet3!$F$80,IF(BD{row_idx}="K",Sheet3!$F$81,IF(BD{row_idx}="C",Sheet3!$F$82,IF(BD{row_idx}="B",Sheet3!$F$83,IF(BD{row_idx}="T",Sheet3!$F$84)))))'
+
+                # Pegembangan Diri/ W.1 (kolom 69)
+                pengembangan_cell = sheet.cell(row=row_idx, column=69)
+                pengembangan_cell.value = f'=IF(BE{row_idx}="R",Sheet3!$F$85,IF(BE{row_idx}="K",Sheet3!$F$86,IF(BE{row_idx}="C",Sheet3!$F$87,IF(BE{row_idx}="B",Sheet3!$F$88,IF(BE{row_idx}="T",Sheet3!$F$89)))))'
+
+                # Mengelola Perubahan/ Z K.1 (kolom 70)
+                perubahan_cell = sheet.cell(row=row_idx, column=70)
+                perubahan_cell.value = f'=IF(BF{row_idx}="R",Sheet3!$J$90,IF(BF{row_idx}="K",Sheet3!$F$91,IF(BF{row_idx}="C",Sheet3!$F$92,IF(BF{row_idx}="B",Sheet3!$F$93,IF(BF{row_idx}="T",Sheet3!$F$94)))))'
+
+            except Exception as e:
+                print(f"Error setting .1 formulas: {e}")
+
+            return True
+        except Exception as e:
+            print(f"Error applying psikogram formulas: {e}")
+            return False
 
     def set_formulas_direct(self, sheet, header_row):
         """
@@ -3620,28 +4088,141 @@ class ExcelViewerApp(QWidget):
                 # Formula untuk ZK
                 zk_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("ZK"))
                 zk_cell.value = f'=(AI{row_idx}+AK{row_idx})/2'
-            
+
+                # Terapkan rumus psikogram
+                self.apply_psikogram_formulas(sheet, row_idx)
+
             print("Formula berhasil diaplikasikan langsung ke sheet Excel")
             return True
         except Exception as e:
             print(f"Error saat menerapkan formula: {e}")
             return False
-    
-    def get_excel_column_index(self, column_name):
+
+    def get_w_column_index(self):
+        """Helper function untuk mendapatkan indeks kolom W yang benar"""
+        return 38  # Indeks kolom W di Excel
+
+    def get_w_value(self, row):
+        """Helper function untuk mengambil nilai W dari baris tertentu"""
+        w_col = self.get_w_column_index()
+        value = self.get_cell_text(row, w_col)
+        print(f"DEBUG - Mengambil nilai W dari baris {row}, kolom {w_col}: '{value}'")
+        return value
+
+    def set_w_value(self, row, value):
+        """Helper function untuk menyimpan nilai W ke baris tertentu"""
+        w_col = self.get_w_column_index()
+        self.table.setItem(row, w_col, QTableWidgetItem(str(value)))
+        print(f"DEBUG - Menyimpan nilai W ke baris {row}, kolom {w_col}: '{value}'")
+
+    def get_sheet3_reference(self, column_name, value):
         """
-        Mendapatkan indeks kolom Excel (1-based) dari nama kolom
+        Fungsi untuk mendapatkan referensi nilai dari Sheet3 berdasarkan kolom dan nilai
         """
-        try:
-            # Cari indeks kolom (0-based)
-            idx = self.get_column_index(column_name)
-            # Konversi ke indeks Excel (1-based)
-            return idx + 1 if idx >= 0 else None
-        except Exception as e:
-            print(f"Error mendapatkan indeks kolom Excel: {e}")
-            return None
+        # Mapping untuk setiap kolom dan nilai referensinya di Sheet3
+        sheet3_references = {
+            "Logika Berpikir 1": {
+                "R": "menunjukkan kesulitan dalam mengidentifikasi pola logis, yang mengindikasikan kemampuan penalaran induktif yang terbatas.",
+                "K": "menunjukkan kesulitan dalam mempertahankan konsistensi logis dalam argumennya, terkadang membuat kesimpulan yang tidak sepenuhnya didukung oleh bukti.",
+                "C": "mampu menerapkan prinsip-prinsip logika dasar dalam pemecahan masalah, meskipun terkadang membutuhkan waktu untuk mencapai kesimpulan yang tepat.",
+                "B": "menunjukkan kemampuan yang kuat dalam mengidentifikasi dan menerapkan pola logis dalam berbagai konteks, menunjukkan kemampuan penalaran yang tinggi.",
+                "T": "menunjukkan kemampuan luar biasa dalam menerapkan prinsip-prinsip logika tingkat lanjut, mampu memecahkan masalah yang kompleks dengan mudah."
+            },
+            "Daya Analisa 3": {
+                "R": "Ybs menunjukkan kesulitan dalam mengidentifikasi komponen-komponen penting dari suatu masalah, sehingga pemahaman terhadap hubungan sebab-akibat menjadi terbatas.",
+                "K": "Ybs menunjukkan keterbatasan dalam mengidentifikasi pola-pola yang mendasari suatu permasalahan, sehingga pemahaman terhadap dinamika masalah kurang mendalam.",
+                "C": "Ybs mampu mengidentifikasi komponen-komponen utama dari suatu permasalahan dan memahami hubungan dasar antara faktor-faktor tersebut.",
+                "B": "Ybs menunjukkan kemampuan yang baik dalam mengidentifikasi pola-pola yang kompleks dan memahami hubungan sebab-akibat yang mendalam.",
+                "T": "Ybs menunjukkan kemampuan yang sangat tinggi dalam mengidentifikasi pola-pola yang abstrak dan memahami hubungan sebab-akibat yang sangat kompleks."
+            },
+            "Kemampuan Verbal 2 dam 4": {
+                "R": "Kemudian, menunjukkan kesulitan dalam memahami instruksi verbal yang kompleks, seringkali memerlukan penjelasan yang berulang.",
+                "K": "Kemudian, menunjukkan pemahaman yang kurang memadai terhadap nuansa makna dalam bahasa, yang mempengaruhi kemampuan mereka dalam berkomunikasi secara efektif.",
+                "C": "Kemudian, memiliki pemahaman yang cukup baik terhadap kosa kata umum dan mampu mengikuti instruksi verbal dengan cukup baik.",
+                "B": "Kemudian, menunjukkan pemahaman yang baik terhadap kosa kata yang luas dan mampu memahami nuansa makna dalam bahasa.",
+                "T": "Kemudian, memiliki penguasaan yang sangat baik terhadap kosa kata yang luas dan kompleks, mampu memahami dan menggunakan bahasa dengan sangat presisi."
+            },
+            "Kemampuan Numerik 5": {
+                "R": "Selain itu, menunjukkan kesulitan yang signifikan dalam memahami konsep dasar matematika seperti persentase dan rasio.",
+                "K": "Selain itu, menunjukkan pemahaman yang kurang memadai terhadap konsep matematika dasar, yang mempengaruhi kemampuan mereka dalam menyelesaikan masalah numerik.",
+                "C": "Selain itu, memiliki pemahaman yang cukup baik terhadap konsep matematika dasar dan mampu melakukan perhitungan aritmatika dengan cukup akurat.",
+                "B": "Selain itu, menunjukkan pemahaman yang baik terhadap konsep matematika dan mampu melakukan perhitungan aritmatika dengan cepat dan akurat.",
+                "T": "Selain itu, memiliki pemahaman yang mendalam terhadap konsep matematika tingkat lanjut dan mampu melakukan perhitungan aritmatika yang kompleks dengan sangat cepat dan akurat."
+            },
+            "Sistematika Kerja/ C D R": {
+                "R": "Kemudian, menunjukkan kesulitan dalam membuat rencana kerja yang terstruktur, seringkali memulai tugas tanpa persiapan yang memadai.",
+                "K": "Kemudian, menunjukkan upaya yang kurang maksimal dalam merencanakan tugas-tugas, terkadang mengabaikan detail-detail penting dalam proses perencanaan.",
+                "C": "Kemudian, mampu membuat rencana kerja yang cukup terstruktur, meskipun terkadang membutuhkan pengawasan tambahan.",
+                "B": "Kemudian, menunjukkan kemampuan yang baik dalam membuat rencana kerja yang terstruktur dan detail, mampu mengantisipasi potensi hambatan.",
+                "T": "Kemudian, memiliki kemampuan yang sangat tinggi dalam membuat rencana kerja yang komprehensif dan strategis, mampu mengintegrasikan berbagai aspek pekerjaan."
+            },
+            "Orientasi Hasil/ N G": {
+                "R": "menunjukkan kesulitan dalam mempertahankan fokus pada penyelesaian tugas, seringkali teralihkan oleh gangguan eksternal.",
+                "K": "menunjukkan upaya yang kurang maksimal dalam menyelesaikan tugas, terkadang mengabaikan detail-detail penting yang mempengaruhi hasil akhir.",
+                "C": "mampu menyelesaikan tugas-tugas yang diberikan dengan cukup baik, meskipun terkadang membutuhkan pengawasan tambahan.",
+                "B": "menunjukkan komitmen yang kuat dalam menyelesaikan tugas-tugas yang diberikan, selalu berusaha untuk mencapai hasil yang terbaik.",
+                "T": "memiliki dorongan yang sangat kuat untuk mencapai hasil yang luar biasa, selalu melampaui ekspektasi dalam menyelesaikan tugas-tugas yang diberikan."
+            },
+            "Fleksibilitas/ T V": {
+                "R": "Ybs menunjukkan kesulitan dalam beradaptasi dengan perubahan situasi, cenderung kaku dalam menghadapi hal-hal baru.",
+                "K": "Ybs menunjukkan upaya yang kurang maksimal dalam menyesuaikan diri dengan perubahan, terkadang merasa tidak nyaman dengan hal-hal baru.",
+                "C": "Ybs mampu menyesuaikan diri dengan perubahan situasi dengan cukup baik, meskipun terkadang membutuhkan waktu untuk beradaptasi",
+                "B": "Ybs menunjukkan kemampuan yang baik dalam beradaptasi dengan perubahan situasi, mampu dengan cepat menyesuaikan diri dengan hal-hal baru.",
+                "T": "Ybs memiliki kemampuan yang sangat tinggi dalam beradaptasi dengan perubahan situasi, mampu dengan cepat dan efektif menyesuaikan diri dengan hal-hal baru."
+            },
+            "Motivasi Berprestasi/ A": {
+                "R": "menunjukkan kurangnya dorongan untuk mencapai target yang ditetapkan, seringkali merasa puas dengan hasil yang minimal.",
+                "K": "menunjukkan upaya yang kurang maksimal dalam mencapai target, terkadang kehilangan fokus dan motivasi di tengah jalan.",
+                "C": "mampu mencapai target yang ditetapkan dengan cukup baik, meskipun terkadang membutuhkan dorongan tambahan.",
+                "B": "menunjukkan dorongan yang kuat untuk mencapai target yang ditetapkan, selalu berusaha untuk melampaui ekspektasi.",
+                "T": "memiliki dorongan yang sangat kuat untuk mencapai prestasi yang luar biasa, selalu menetapkan target yang sangat tinggi dan menantang"
+            },
+            "Kerjasama/ P I": {
+                "R": "Tak hanya itu, ybs juga menunjukkan kesulitan dalam berpartisipasi dalam kerja kelompok, seringkali lebih memilih untuk bekerja sendiri.",
+                "K": "Tak hanya itu, ybs juga menunjukkan upaya yang kurang maksimal dalam berkontribusi pada kerja kelompok, terkadang mengabaikan tanggung jawab yang diberikan.",
+                "C": "Tak hanya itu, ybs juga mampu berpartisipasi dalam kerja kelompok dengan cukup baik, meskipun terkadang membutuhkan arahan tambahan.",
+                "B": "Tak hanya itu, ybs juga menunjukkan kemampuan yang baik dalam berkolaborasi dengan anggota tim, selalu berusaha untuk memberikan kontribusi yang positif.",
+                "T": "Tak hanya itu, ybs juga memiliki kemampuan yang sangat tinggi dalam membangun dan memimpin tim yang efektif, mampu menginspirasi dan memotivasi anggota tim untuk mencapai tujuan bersama."
+            },
+            "Keterampilan Interpersonal/ B S": {
+                "R": "Ybs menunjukkan kesulitan dalam memahami dan merespons emosi orang lain, yang menyebabkan seringnya terjadi kesalahpahaman dalam interaksi sosial.",
+                "K": "Ybs menunjukkan upaya yang kurang maksimal dalam membangun hubungan sosial yang efektif, terkadang mengalami kesulitan dalam berkomunikasi secara asertif.",
+                "C": "Ybs mampu membangun dan mempertahankan hubungan sosial yang cukup baik, meskipun terkadang membutuhkan arahan tambahan.",
+                "B": "Ybs menunjukkan kemampuan yang baik dalam membangun dan mempertahankan hubungan sosial yang positif, mampu menciptakan suasana yang nyaman dan mendukung.",
+                "T": "Ybs memiliki kemampuan yang sangat tinggi dalam membangun dan memimpin hubungan sosial yang kompleks, mampu menginspirasi dan memotivasi orang lain."
+            },
+            "Stabilitas Emosi/ E PHQ": {
+                "R": "Selain itu juga, menunjukkan fluktuasi emosi yang signifikan, seringkali bereaksi berlebihan terhadap situasi yang menekan.",
+                "K": "Selain itu juga, menunjukkan upaya yang kurang maksimal dalam mengendalikan emosi, terkadang mengalami kesulitan dalam menghadapi situasi yang sulit.",
+                "C": "Selain itu juga, mampu mengendalikan emosi dengan cukup baik dalam situasi yang relatif stabil, meskipun terkadang membutuhkan waktu untuk beradaptasi dengan perubahan.",
+                "B": "Selain itu juga, menunjukkan kemampuan yang baik dalam mengendalikan emosi, mampu menjaga ketenangan dalam situasi yang menekan.",
+                "T": "Selain itu juga, memiliki kemampuan yang sangat tinggi dalam mengendalikan emosi, mampu menjaga keseimbangan emosional dalam situasi yang sangat menekan."
+            },
+            "Pegembangan Diri/ W": {
+                "R": "menunjukkan kurangnya inisiatif dalam mencari peluang untuk meningkatkan pengetahuan dan keterampilan diri.",
+                "K": "menunjukkan upaya yang kurang maksimal dalam mengembangkan diri, terkadang kurang konsisten dalam mengikuti program pelatihan atau pengembangan",
+                "C": "mampu mengikuti program pelatihan atau pengembangan diri dengan cukup baik, meskipun terkadang membutuhkan dorongan tambahan.",
+                "B": "menunjukkan inisiatif yang kuat dalam mencari peluang untuk mengembangkan diri, selalu berusaha untuk meningkatkan pengetahuan dan keterampilan.",
+                "T": "memiliki dorongan yang sangat kuat untuk mengembangkan diri, selalu mencari tantangan dan peluang untuk pertumbuhan pribadi."
+            },
+            "Mengelola Perubahan/ Z K": {
+                "R": "serta menunjukkan resistensi yang kuat terhadap perubahan, seringkali merasa tidak nyaman dan tertekan dalam situasi baru.",
+                "K": "serta untuk mengubah pola pikir dan perilaku dalam menghadapi perubahan masih berkembang, yang menyebabkan terkadang terjadi kesulitan dalam beradaptasi.",
+                "C": "serta mampu menyesuaikan diri dengan perubahan situasi dengan cukup baik, meskipun terkadang membutuhkan waktu untuk beradaptasi.",
+                "B": "serta menunjukkan kemampuan yang baik dalam beradaptasi dengan perubahan, mampu dengan cepat menyesuaikan diri dengan situasi baru.",
+                "T": "serta memiliki kemampuan yang sangat tinggi dalam mengelola perubahan, mampu memimpin dan menginspirasi orang lain untuk beradaptasi dengan situasi baru."
+            }
+        }
+
+        # Dapatkan referensi dari mapping
+        if column_name in sheet3_references and value in sheet3_references[column_name]:
+            return sheet3_references[column_name][value]
+        return ""  # Return string kosong jika tidak ada referensi yang cocok
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = ExcelViewerApp()
     window.show()
     sys.exit(app.exec_())
+
+
