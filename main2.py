@@ -3575,53 +3575,33 @@ class ExcelViewerApp(QWidget):
                             <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black; font-size: 16px;">KESIMPULAN</th>
                         </tr>
                         <tr>
-                            <td style="width: 20%; padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">KEMAMPUAN INTELEKTUAL</td>
-                            <td style="width: 80%; padding: 8px; text-align: justify; border: 1px solid black;">
-
+                            <td style="width: 20%; padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold; font-size: 12px; ">KEMAMPUAN INTELEKTUAL</td>
+                            <td style="width: 80%; padding: 8px; text-align: justify; border: 1px solid black; font-size: 14px;">
                                 {row_data.get('Intelegensi Umum.1', '')}
-
-                                Berdasarkan pemeriksaan kemampuan intelektual, diketahui bahwa {gender_prefix} {nama} {' '.join(conclusion_texts["KEMAMPUAN INTELEKTUAL"])}
-
+                                Berdasarkan pemeriksaan kemampuan intelektual, diketahui bahwa {gender_prefix} {nama} memiliki {' '.join(conclusion_texts["KEMAMPUAN INTELEKTUAL"])}
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">SIKAP DAN CARA KERJA</td>
-                            <td style="padding: 8px; text-align: justify; border: 1px solid black;">
-
+                            <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold; font-size: 12px; ">SIKAP DAN CARA KERJA</td>
+                            <td style="padding: 8px; text-align: justify; border: 1px solid black; font-size: 14px;">
                                 {row_data.get('Sistematika Kerja/ cd.1', '')}
-
-                                Berdasarkan pemeriksaan sikap dan cara kerja, diketahui bahwa {gender_prefix} {nama} {' '.join(conclusion_texts["SIKAP DAN CARA KERJA"])}
-
+                                Berdasarkan pemeriksaan sikap dan cara kerja, diketahui bahwa {gender_prefix} {nama} menunjukkan {' '.join(conclusion_texts["SIKAP DAN CARA KERJA"])}
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">KEPRIBADIAN</td>
-                            <td style="padding: 8px; text-align: justify; border: 1px solid black;">
-
+                            <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold ; font-size: 12px; ">KEPRIBADIAN</td>
+                            <td style="padding: 8px; text-align: justify; border: 1px solid black; font-size: 14px;">
                                 {row_data.get('Stabilitas Emosi / E.1', '')}
-
-                                Berdasarkan pemeriksaan kepribadian, diketahui bahwa {gender_prefix} {nama} {' '.join(conclusion_texts["KEPRIBADIAN"])}
-
+                                Berdasarkan pemeriksaan kepribadian, diketahui bahwa {gender_prefix} {nama} memiliki {' '.join(conclusion_texts["KEPRIBADIAN"])}
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold;">KEMAMPUAN BELAJAR</td>
-                            <td style="padding: 8px; text-align: justify; border: 1px solid black;">
-
+                            <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold; font-size: 12px;">KEMAMPUAN BELAJAR</td>
+                            <td style="padding: 8px; text-align: justify; border: 1px solid black; font-size: 14px;">
                                 {row_data.get('Fleksibilitas', '')}
+                                Berdasarkan pemeriksaan kemampuan belajar, diketahui bahwa {gender_prefix} {nama} menunjukkan {' '.join(conclusion_texts["KEMAMPUAN BELAJAR"])}
                             </td>
                         </tr>
-                        <tr>
-                            <td colspan="2" style="padding: 8px;">
-                                <div style="font-weight: bold; margin: 10px 0; font-size: 12px;">PENGEMBANGAN</div>
-                                <div style="text-align: justify; border: 1px solid black; padding: 8px;">
-                                    {row_data.get('Keterampilan Sosial / X S', '')}
-                                </div>
-
-                                Berdasarkan pemeriksaan kemampuan belajar, diketahui bahwa {gender_prefix} {nama} {' '.join(conclusion_texts["KEMAMPUAN BELAJAR"])}
-                            </td>
-                        </tr>
-                        <tr>
                     </table>
                     
                     <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
@@ -3631,7 +3611,6 @@ class ExcelViewerApp(QWidget):
                         <tr>
                             <td colspan="2" style="padding: 12px; text-align: justify; border: 1px solid black; font-size: 14px;">
                                 {development_text}
-
                             </td>
                         </tr>
                     </table>
@@ -3641,32 +3620,19 @@ class ExcelViewerApp(QWidget):
                             <th colspan="3" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black; font-size: 14px;">Kategori Hasil Screening</th>
                         </tr>
                         <tr>
-
-                            <td style="width: 5%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if float(row_data.get('IQ ', 0)) >= 90 else ""}</td>
-                            <td style="padding: 8px; border: 1px solid black;">Tahapan Normal<br><span style="font-size: 10px; color: #666;">Individu menunjukkan adaptasi gejala gangguan mental yang mengganggu fungsi sehari-hari</span></td>
-                        </tr>
-                        <tr>
-                            <td style="text-align: center; border: 1px solid black; padding: 8px;">{"X" if 80 <= float(row_data.get('IQ ', 0)) < 90 else ""}</td>
-                            <td style="padding: 8px; border: 1px solid black;">Kecenderungan Stress dalam Tekanan<br><span style="font-size: 10px; color: #666;">Dalam situasi yg menimbulkan tekanan dapat berdampak pada kondisi individu & respon emosional yg ditampilkan</span></td>
-                        </tr>
-                        <tr>
-                            <td style="text-align: center; border: 1px solid black; padding: 8px;">{"X" if float(row_data.get('IQ ', 0)) < 80 else ""}</td>
-                            <td style="padding: 8px; border: 1px solid black;">Gangguan<br><span style="font-size: 10px; color: #666;">Individu menunjukkan gejala-gejala gangguan yang dapat mengganggu fungsi sehari-hari</span></td>
-
                             <td style="width: 10%; text-align: center; border: 1px solid black; padding: 10px; font-size: 14px;">{"X" if selected_category == "Tahapan Normal" else ""}</td>
                             <td style="width: 30%; text-align: center; padding: 10px; border: 1px solid black; font-size: 14px;">Tahapan Normal</td>
                             <td style="padding: 10px; border: 1px solid black; font-size: 14px;">Individu tidak menunjukkan adanya gejala gangguan mental yang mengganggu fungsi sehari-hari.</td>
                         </tr>
                         <tr>
-                            <td style="text-align: center; border: 1px solid black; padding: 8px; font-size: 11px;">{"X" if selected_category == "Cenderung Stress dalam Tekanan" else ""}</td>
-                            <td style="text-align: center; padding: 8px; border: 1px solid black; font-size: 11px;">Kecenderungan Stress dalam Tekanan</td>
-                            <td style="padding: 8px; border: 1px solid black; font-size: 11px;">Dalam situasi yg menimbulkan tekanan dapat berdampak pada kondisi mental & respon emosional yg ditampilkan.</td>
+                            <td style="text-align: center; border: 1px solid black; padding: 10px; font-size: 14px;">{"X" if selected_category == "Cenderung Stress dalam Tekanan" else ""}</td>
+                            <td style="text-align: center; padding: 10px; border: 1px solid black; font-size: 14px;">Kecenderungan Stress dalam Tekanan</td>
+                            <td style="padding: 10px; border: 1px solid black; font-size: 14px;">Dalam situasi yg menimbulkan tekanan dapat berdampak pada kondisi mental & respon emosional yg ditampilkan.</td>
                         </tr>
                         <tr>
                             <td style="text-align: center; border: 1px solid black; padding: 10px; font-size: 14px;">{"X" if selected_category == "Gejala Gangguan" else ""}</td>
                             <td style="text-align: center; padding: 10px; border: 1px solid black; font-size: 14px;">Gangguan</td>
                             <td style="padding: 10px; border: 1px solid black; font-size: 14px;">Individu menunjukkan gejala gangguan mental yang dapat mengganggu fungsi sehari-hari.</td>
-
                         </tr>
                     </table>
                     
@@ -3675,17 +3641,6 @@ class ExcelViewerApp(QWidget):
                             <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">Kesimpulan Keseluruhan</th>
                         </tr>
                         <tr>
-
-                            <td style="width: 8%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if float(row_data.get('IQ ', 0)) >= 110 else ""}</td>
-                            <td style="padding: 8px; border: 1px solid black;">LAYAK DIREKOMENDASIKAN</td>
-                        </tr>
-                        <tr>
-                            <td style="width: 8%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if 90 <= float(row_data.get('IQ ', 0)) < 110 else ""}</td>
-                            <td style="padding: 8px; border: 1px solid black;">LAYAK DIPERTIMBANGKAN</td>
-                        </tr>
-                        <tr>
-                            <td style="text-align: center; border: 1px solid black; padding: 8px;">{"X" if float(row_data.get('IQ ', 0)) < 90 else ""}</td>
-
                             <td style="width: 10%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if overall_recommendation == "LAYAK DIREKOMENDASIKAN" else ""}</td>
                             <td style="padding: 8px; border: 1px solid black;">LAYAK DIREKOMENDASIKAN</td>
                         </tr>
@@ -3694,8 +3649,7 @@ class ExcelViewerApp(QWidget):
                             <td style="padding: 8px; border: 1px solid black;">LAYAK DIPERTIMBANGKAN</td>
                         </tr>
                         <tr>
-                            <td style="text-align: center; border: 1px solid black; padding: 8px;">{"X" if overall_recommendation == "TIDAK DISARANKAN" else ""}</td>
-
+                            <td style="width: 10%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if overall_recommendation == "TIDAK DISARANKAN" else ""}</td>
                             <td style="padding: 8px; border: 1px solid black;">TIDAK DISARANKAN</td>
                         </tr>
                     </table>
@@ -3903,12 +3857,15 @@ class ExcelViewerApp(QWidget):
             # Add .pdf extension if not present
             if not file_name.lower().endswith('.pdf'):
                 file_name += '.pdf'
-                
-            # Create web view with A4 dimensions
-            web_view = QWebEngineView()
+
+            # Create separate web views for each page
+            web_views = []
+            pages = html_content.split('<div class="page-break"></div>')
             
-            # Update the styles to ensure content fits on one page
-            html_content = html_content.replace('</head>',
+            for page in pages:
+                web_view = QWebEngineView()
+                # Add styles for proper page formatting
+                page_with_styles = page.replace('</head>',
                 '''
                 <style>
                     @page {
@@ -4008,32 +3965,32 @@ class ExcelViewerApp(QWidget):
                 </style>
                 </head>
                 ''')
-            web_view.setHtml(html_content)
+                web_view.setHtml(page_with_styles)
+                web_views.append(web_view)
+
+            # Wait for all pages to load
+            for web_view in web_views:
+                loop = QEventLoop()
+                web_view.loadFinished.connect(loop.quit)
+                loop.exec_()
+
+            # Create PDF writer
+            pdf_writer = QPdfWriter(file_name)
+            pdf_writer.setPageSize(QPageSize(QPageSize.A4))
             
-            # Wait for page to load
-            loop = QEventLoop()
-            web_view.loadFinished.connect(loop.quit)
-            loop.exec_()
-            
-            # Variable to track if we've already shown a message
-            self.message_shown = False
-            
-            def handle_pdf(data):
-                if data and not self.message_shown:
-                    self.message_shown = True
-                    try:
-                        with open(file_name, 'wb') as f:
-                            f.write(data)
-                        QMessageBox.information(self, "Success", "PDF saved successfully!")
-                    except Exception as e:
-                        QMessageBox.warning(self, "Warning", f"Failed to write PDF: {str(e)}")
-                elif not data and not self.message_shown:
-                    self.message_shown = True
-                    QMessageBox.warning(self, "Warning", "Failed to generate PDF data")
-            
-            # Keep reference to web_view to prevent garbage collection
-            self.temp_web_view = web_view
-            web_view.page().printToPdf(handle_pdf)
+            # Create painter
+            painter = QPainter()
+            painter.begin(pdf_writer)
+
+            # Print each page
+            for i, web_view in enumerate(web_views):
+                if i > 0:
+                    pdf_writer.newPage()
+                web_view.page().view().render(painter)
+
+            painter.end()
+
+            QMessageBox.information(self, "Success", "PDF saved successfully!")
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error saving PDF: {e}")
