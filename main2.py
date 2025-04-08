@@ -2354,16 +2354,19 @@ class ExcelViewerApp(QWidget):
 
                 # Get values for each psychological aspect
                 aspects = {
-                    "daya_analisa": row_data.get("Daya Analisa/ AN", ""),
-                    "kemampuan_numerik": row_data.get("Kemampuan Numerik/ RA ZR", ""),
-                    "kemampuan_verbal": row_data.get("Kemampuan Verbal/WA GE", ""),
-                    "fleksibilitas": row_data.get("Flexibilitas/ T V", ""),
-                    "sistematika_kerja": row_data.get("Sistematika Kerja/ cd", ""),
-                    "inisiatif": row_data.get("Inisiatif/W", ""),
-                    "stabilitas_emosi": row_data.get("Stabilitas Emosi / E", ""),
-                    "komunikasi": row_data.get("Komunikasi / B O", ""),
-                    "keterampilan_interpersonal": row_data.get("Keterampilan Interpersonal / S O", ""),
-                    "kerjasama": row_data.get("Kerjasama / B X", "")
+                    "logika_berpikir": row_data.get("Logika Berpikir 1", ""),  # Sesuai kolom asli
+                    "daya_analisa": row_data.get("Daya Analisa 3", ""),  # Sesuai kolom asli
+                    "kemampuan_verbal": row_data.get("Kemampuan Verbal 2 dam 4", ""),  # Sesuai kolom asli
+                    "kemampuan_numerik": row_data.get("Kemampuan Numerik 5", ""),  # Sesuai kolom asli
+                    "sistematika_kerja": row_data.get("Sistematika Kerja/ C D R", ""),  # Sesuai kolom asli
+                    "orientasi_hasil": row_data.get("Orientasi Hasil/ N G", ""),  # Sesuai kolom asli
+                    "fleksibilitas": row_data.get("Fleksibilitas/ T V", ""),  # Sesuai kolom asli
+                    "motivasi_berprestasi": row_data.get("Motivasi Berprestasi/ A", ""),  # Sesuai kolom asli
+                    "kerjasama": row_data.get("Kerjasama/ P I", ""),  # Sesuai kolom asli
+                    "keterampilan_interpersonal": row_data.get("Keterampilan Interpersonal/ B S", ""),  # Sesuai kolom asli
+                    "stabilitas_emosi": row_data.get("Stabilitas Emosi/ E PHQ", ""),  # Sesuai kolom asli
+                    "pengembangan_diri": row_data.get("Pegembangan Diri/ W", ""),  # Sesuai kolom asli
+                    "mengelola_perubahan": row_data.get("Mengelola Perubahan/ Z K", "")  # Sesuai kolom asli
                 }
 
                 # Define common cell styles
@@ -2395,7 +2398,7 @@ class ExcelViewerApp(QWidget):
                             <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">1.</td>
                             <td style="font-weight: bold;">Logika Berpikir</td>
                             <td>Kemampuan untuk berpikir secara logis dan sistematis.</td>
-                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["daya_analisa"]))}
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["logika_berpikir"]))}
                         </tr>
 
                         <!-- Daya Analisa -->
@@ -2429,7 +2432,7 @@ class ExcelViewerApp(QWidget):
                             <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">5.</td>
                             <td style="font-weight: bold;">Orientasi Hasil</td>
                             <td>Kemampuan untuk mempertahankan komitmen untuk menyelesaikan tugas secara bertanggung jawab dan memperhatikan keterhubungan antara perencanaan dan hasil kerja.</td>
-                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["sistematika_kerja"]))}
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["orientasi_hasil"]))}
                         </tr>
 
                         <!-- Fleksibilitas -->
@@ -2455,7 +2458,7 @@ class ExcelViewerApp(QWidget):
                             <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">8.</td>
                             <td style="font-weight: bold;">Motivasi Berprestasi</td>
                             <td>Kemampuan untuk menunjukkan prestasi dan mencapai target.</td>
-                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["inisiatif"]))}
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["motivasi_berprestasi"]))}
                         </tr>
 
                         <!-- Kerjasama -->
@@ -2489,7 +2492,7 @@ class ExcelViewerApp(QWidget):
                             <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">12.</td>
                             <td style="font-weight: bold;">Pengembangan Diri</td>
                             <td>Kemampuan untuk meningkatkan pengetahuan dan menyempurnakan keterampilan diri.</td>
-                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["inisiatif"]))}
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["pengembangan_diri"]))}
                         </tr>
 
                         <!-- Mengelola Perubahan -->
@@ -2497,7 +2500,7 @@ class ExcelViewerApp(QWidget):
                             <td style="text-align: center; background-color: #deeaf6; font-weight: bold;">13.</td>
                             <td style="font-weight: bold;">Mengelola Perubahan</td>
                             <td>Kemampuan dalam menyesuaikan diri dengan situasi yang baru.</td>
-                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["fleksibilitas"]))}
+                            {' '.join(f'<td style="{cell_style}">{x}</td>' for x in get_x_position(aspects["mengelola_perubahan"]))}
                         </tr>
 
                         <!-- Legend -->
