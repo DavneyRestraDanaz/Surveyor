@@ -957,17 +957,17 @@ class ExcelViewerApp(QWidget):
 
     def show_table(self, df):
         try:
-            # Pastikan kolom-kolom penting ada
+            # Ensure important columns exist
             important_columns = ["KLASIFIKASI"]
             df_with_columns = df.copy()
             
-            # Tambahkan kolom yang hilang
+            # Add missing columns
             for col in important_columns:
                 if col not in df_with_columns.columns:
-                    print(f"Menambahkan kolom yang hilang: {col}")
+                    print(f"Adding missing column: {col}")
                     df_with_columns[col] = ""
             
-            # Setup table untuk menampilkan data
+            # Setup table for displaying data
             self.table.setRowCount(df_with_columns.shape[0])
             self.table.setColumnCount(len(df_with_columns.columns))
             self.table.setHorizontalHeaderLabels(df_with_columns.columns)
@@ -977,26 +977,36 @@ class ExcelViewerApp(QWidget):
                 for j, (col_name, val) in enumerate(row.items()):
                     item = QTableWidgetItem(str(val))
                     self.table.setItem(i, j, item)
-                    # Debug untuk kolom W
-                    if col_name == "W":
-                        print(f"DEBUG - Show_table: Mengatur nilai W='{val}' ke tabel di baris {i}, kolom {j}")
             
-            # Sembunyikan kolom-kolom yang tidak dipakai
+            # Hide unused columns
             for col_name in self.columns_to_hide:
                 if col_name in df_with_columns.columns:
                     col_idx = df_with_columns.columns.get_loc(col_name)
                     self.table.hideColumn(col_idx)
-                    print(f"Menyembunyikan kolom yang tidak dipakai: {col_name} (indeks {col_idx})")
             
-            # Resize columns to fit content
-            self.table.resizeColumnsToContents()
+            # Set column widths with better sizing
+            header = self.table.horizontalHeader()
+            for col in range(self.table.columnCount()):
+                header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+                # Get the content width and add padding
+                content_width = self.table.sizeHintForColumn(col)
+                header_width = header.sectionSizeHint(col)
+                # Use the larger of content or header width, plus padding
+                width = max(content_width, header_width) + 30
+                # Set minimum width for better readability
+                width = max(width, 100)
+                self.table.setColumnWidth(col, width)
             
-            # Perbarui daftar kolom
+            # Enable horizontal scrolling
+            self.table.setHorizontalScrollMode(QTableWidget.ScrollPerPixel)
+            
+            # Update column list
             self.columns = list(df_with_columns.columns)
             
-            print("Berhasil menampilkan tabel")
+            print("Table displayed successfully")
+            
         except Exception as e:
-            print(f"Error saat menampilkan tabel: {e}")
+            print(f"Error displaying table: {e}")
             import traceback
             traceback.print_exc()
 
@@ -3015,32 +3025,32 @@ class ExcelViewerApp(QWidget):
 
                     <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 10px; font-family: Arial, sans-serif;">
                         <tr>
-                            <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black; font-size: 16px;">KESIMPULAN</th>
+                            <th colspan="2" style="text-align: center; padding: 6px; background-color: #fbe4d5; border: 1px solid black; font-size: 14px;">KESIMPULAN</th>
                         </tr>
                         <tr>
-                            <td style="width: 20%; padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold; font-size: 12px; ">KEMAMPUAN INTELEKTUAL</td>
-                            <td style="width: 80%; padding: 8px; text-align: justify; border: 1px solid black; font-size: 14px;">
+                            <td style="width: 25%; padding: 6px; vertical-align: top; border: 1px solid black; font-weight: bold; font-size: 12px;">KEMAMPUAN INTELEKTUAL</td>
+                            <td style="width: 75%; padding: 6px; text-align: justify; border: 1px solid black; font-size: 12px; line-height: 1.2;">
                                 {row_data.get('Intelegensi Umum.1', '')}
                                 Berdasarkan pemeriksaan kemampuan intelektual, diketahui bahwa {gender_prefix} {nama} memiliki {' '.join(conclusion_texts["KEMAMPUAN INTELEKTUAL"])}
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold; font-size: 12px; ">SIKAP DAN CARA KERJA</td>
-                            <td style="padding: 8px; text-align: justify; border: 1px solid black; font-size: 14px;">
+                            <td style="padding: 6px; vertical-align: top; border: 1px solid black; font-weight: bold; font-size: 12px;">SIKAP DAN CARA KERJA</td>
+                            <td style="padding: 6px; text-align: justify; border: 1px solid black; font-size: 12px; line-height: 1.2;">
                                 {row_data.get('Sistematika Kerja/ cd.1', '')}
                                 Berdasarkan pemeriksaan sikap dan cara kerja, diketahui bahwa {gender_prefix} {nama} menunjukkan {' '.join(conclusion_texts["SIKAP DAN CARA KERJA"])}
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold ; font-size: 12px; ">KEPRIBADIAN</td>
-                            <td style="padding: 8px; text-align: justify; border: 1px solid black; font-size: 14px;">
+                            <td style="padding: 6px; vertical-align: top; border: 1px solid black; font-weight: bold; font-size: 12px;">KEPRIBADIAN</td>
+                            <td style="padding: 6px; text-align: justify; border: 1px solid black; font-size: 12px; line-height: 1.2;">
                                 {row_data.get('Stabilitas Emosi / E.1', '')}
                                 Berdasarkan pemeriksaan kepribadian, diketahui bahwa {gender_prefix} {nama} memiliki {' '.join(conclusion_texts["KEPRIBADIAN"])}
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding: 8px; vertical-align: top; border: 1px solid black; font-weight: bold; font-size: 12px;">KEMAMPUAN BELAJAR</td>
-                            <td style="padding: 8px; text-align: justify; border: 1px solid black; font-size: 14px;">
+                            <td style="padding: 6px; vertical-align: top; border: 1px solid black; font-weight: bold; font-size: 12px;">KEMAMPUAN BELAJAR</td>
+                            <td style="padding: 6px; text-align: justify; border: 1px solid black; font-size: 12px; line-height: 1.2;">
                                 {row_data.get('Fleksibilitas', '')}
                                 Berdasarkan pemeriksaan kemampuan belajar, diketahui bahwa {gender_prefix} {nama} menunjukkan {' '.join(conclusion_texts["KEMAMPUAN BELAJAR"])}
                             </td>
@@ -3049,7 +3059,7 @@ class ExcelViewerApp(QWidget):
                     
                     <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
                         <tr>
-                            <th colspan="2" style="text-align: center; padding: 12px; background-color: #fbe4d5; border: 1px solid black; font-size: 14px;">PENGEMBANGAN</th>
+                            <th colspan="2" style="text-align: center; padding: 12px; background-color: #fbe4d5; border: 1px solid black; font-size: 15px;">PENGEMBANGAN</th>
                         </tr>
                         <tr>
                             <td colspan="2" style="padding: 12px; text-align: justify; border: 1px solid black; font-size: 14px;">
@@ -3060,11 +3070,11 @@ class ExcelViewerApp(QWidget):
 
                     <table class="psikogram" style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
                         <tr>
-                            <th colspan="3" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black; font-size: 14px;">Kategori Hasil Screening</th>
+                            <th colspan="3" style="text-align: center; padding: 10px; background-color: #fbe4d5; border: 1px solid black; font-size: 15px;">Kategori Hasil Screening</th>
                         </tr>
                         <tr>
-                            <td style="width: 10%; text-align: center; border: 1px solid black; padding: 10px; font-size: 14px;">{"X" if selected_category == "Tahapan Normal" else ""}</td>
-                            <td style="width: 30%; text-align: center; padding: 10px; border: 1px solid black; font-size: 14px;">Tahapan Normal</td>
+                            <td style="width: 15%; text-align: center; border: 1px solid black; padding: 10px; font-size: 14px;">{"X" if selected_category == "Tahapan Normal" else ""}</td>
+                            <td style="width: 35%; text-align: center; padding: 10px; border: 1px solid black; font-size: 14px;">Tahapan Normal</td>
                             <td style="padding: 10px; border: 1px solid black; font-size: 14px;">Individu tidak menunjukkan adanya gejala gangguan mental yang mengganggu fungsi sehari-hari.</td>
                         </tr>
                         <tr>
@@ -3079,21 +3089,21 @@ class ExcelViewerApp(QWidget):
                         </tr>
                     </table>
                     
-                    <table class="psikogram" style="width: 40%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
+                    <table class="psikogram" style="width: 50%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
                         <tr>
-                            <th colspan="2" style="text-align: center; padding: 8px; background-color: #fbe4d5; border: 1px solid black;">Kesimpulan Keseluruhan</th>
+                            <th colspan="2" style="text-align: center; padding: 10px; background-color: #fbe4d5; border: 1px solid black; font-size: 15px;">Kesimpulan Keseluruhan</th>
                         </tr>
                         <tr>
-                            <td style="width: 10%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if overall_recommendation == "LAYAK DIREKOMENDASIKAN" else ""}</td>
-                            <td style="padding: 8px; border: 1px solid black;">LAYAK DIREKOMENDASIKAN</td>
+                            <td style="width: 15%; text-align: center; border: 1px solid black; padding: 10px;">{"X" if overall_recommendation == "LAYAK DIREKOMENDASIKAN" else ""}</td>
+                            <td style="padding: 10px; border: 1px solid black;">LAYAK DIREKOMENDASIKAN</td>
                         </tr>
                         <tr>
-                            <td style="width: 10%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if overall_recommendation == "LAYAK DIPERTIMBANGKAN" else ""}</td>
-                            <td style="padding: 8px; border: 1px solid black;">LAYAK DIPERTIMBANGKAN</td>
+                            <td style="width: 15%; text-align: center; border: 1px solid black; padding: 10px;">{"X" if overall_recommendation == "LAYAK DIPERTIMBANGKAN" else ""}</td>
+                            <td style="padding: 10px; border: 1px solid black;">LAYAK DIPERTIMBANGKAN</td>
                         </tr>
                         <tr>
-                            <td style="width: 10%; text-align: center; border: 1px solid black; padding: 8px;">{"X" if overall_recommendation == "TIDAK DISARANKAN" else ""}</td>
-                            <td style="padding: 8px; border: 1px solid black;">TIDAK DISARANKAN</td>
+                            <td style="width: 15%; text-align: center; border: 1px solid black; padding: 10px;">{"X" if overall_recommendation == "TIDAK DISARANKAN" else ""}</td>
+                            <td style="padding: 10px; border: 1px solid black;">TIDAK DISARANKAN</td>
                         </tr>
                     </table>
                 </div>
@@ -3115,44 +3125,45 @@ class ExcelViewerApp(QWidget):
                         </div>
                     </div>
 
-                    <div style="margin-bottom: 20px;">
-                        <div style="margin-bottom: 15px;">
+                    <div style="margin-bottom: 40px;">
+                        <div style="margin-bottom: 35px;">
                             <div>
-                                <span style="display: inline-block; width: 120px; font-size: 14px;">Tanggal</span>
-                                <span style="font-size: 14px;">: {datetime.now().strftime("%d %B %Y")}</span>
+                                <span style="display: inline-block; width: 180px; font-size: 16px;">Tanggal</span>
+                                <span style="font-size: 16px;">: {datetime.now().strftime("%d %B %Y")}</span>
                             </div>
-                            <div style="font-style: italic; font-size: 12px; color: #666;">Date</div>
+                            <div style="font-style: italic; font-size: 14px; color: #666; margin-top: 5px;">Date</div>
                         </div>
                         
-                        <div style="margin-bottom: 15px;">
+                        <div style="margin-bottom: 35px;">
                             <div>
-                                <span style="display: inline-block; width: 120px; font-size: 14px;">Tanda Tangan</span>
+                                <span style="display: inline-block; width: 180px; font-size: 16px;">Tanda Tangan</span>
+                                <span style="font-size: 16px;">:</span>
                             </div>
-                            <div style="font-style: italic; font-size: 12px; color: #666;">Signature</div>
+                            <div style="font-style: italic; font-size: 14px; color: #666; margin-top: 5px;">Signature</div>
                         </div>
                         
-                        <div style="margin-bottom: 15px;">
+                        <div style="margin-bottom: 35px;">
                             <div>
-                                <span style="display: inline-block; width: 120px; font-size: 14px;">Nama Psikolog</span>
-                                <span style="font-size: 14px;">: Chitra Ananda Mulia, M.Psi., Psikolog</span>
+                                <span style="display: inline-block; width: 180px; font-size: 16px;">Nama Psikolog</span>
+                                <span style="font-size: 16px;">: Chitra Ananda Mulia, M.Psi., Psikolog</span>
                             </div>
-                            <div style="font-style: italic; font-size: 12px; color: #666;">Psychologist Name</div>
+                            <div style="font-style: italic; font-size: 14px; color: #666; margin-top: 5px;">Psychologist Name</div>
                         </div>
                         
-                        <div style="margin-bottom: 15px;">
+                        <div style="margin-bottom: 35px;">
                             <div>
-                                <span style="display: inline-block; width: 120px; font-size: 14px;">Nomor STR/SIK</span>
-                                <span style="font-size: 14px;">:</span>
+                                <span style="display: inline-block; width: 180px; font-size: 16px;">Nomor STR/SIK</span>
+                                <span style="font-size: 16px;">:</span>
                             </div>
-                            <div style="font-style: italic; font-size: 12px; color: #666;">Registration Number</div>
+                            <div style="font-style: italic; font-size: 14px; color: #666; margin-top: 5px;">Registration Number</div>
                         </div>
                         
-                        <div style="margin-bottom: 15px;">
+                        <div style="margin-bottom: 35px;">
                             <div>
-                                <span style="display: inline-block; width: 120px; font-size: 14px;">Nomor SIPP/SIPPK</span>
-                                <span style="font-size: 14px;">: 1564-19-2-2</span>
+                                <span style="display: inline-block; width: 180px; font-size: 16px;">Nomor SIPP/SIPPK</span>
+                                <span style="font-size: 16px;">: 1564-19-2-2</span>
                             </div>
-                            <div style="font-style: italic; font-size: 12px; color: #666;">Licence Number</div>
+                            <div style="font-style: italic; font-size: 14px; color: #666; margin-top: 5px;">Licence Number</div>
                         </div>
                     </div>
                 </div>
