@@ -8,7 +8,8 @@ from PyQt5.QtWidgets import (
     QComboBox, QScrollArea
 )
 from PyQt5.QtGui import (
-    QFont, QTextDocument, QPageSize, QPageLayout
+    QFont, QTextDocument, QPageSize, QPageLayout,
+    QPdfWriter, QPainter
 )
 from PyQt5.QtCore import (
     Qt, QEventLoop, QSizeF, QMarginsF, QUrl
@@ -3067,164 +3068,161 @@ class ExcelViewerApp(QWidget):
 
     def save_as_pdf(self, html_content):
         try:
+            # Get save file name from dialog
             file_name, _ = QFileDialog.getSaveFileName(
                 self,
-                "Save PDF",
+                "Save PDF", 
                 "",
                 "PDF Files (*.pdf)"
             )
             
             if not file_name:
-                return  # User canceled the save dialog
+                return  # User canceled
                 
-            # Add .pdf extension if not present
+            # Ensure .pdf extension
             if not file_name.lower().endswith('.pdf'):
                 file_name += '.pdf'
 
-            # Create separate web views for each page
-            web_views = []
-            pages = html_content.split('<div class="page-break"></div>')
+            # Create a printer with PDF output
+            printer = QPrinter(QPrinter.HighResolution)
+            printer.setOutputFormat(QPrinter.PdfFormat)
+            printer.setOutputFileName(file_name)
+            printer.setPageSize(QPageSize(QPageSize.A4))
+            printer.setPageMargins(10, 10, 10, 10, QPrinter.Millimeter)
+
+            # Create web view for PDF generation
+            web_view = QWebEngineView()
             
-            for page in pages:
-                web_view = QWebEngineView()
-                # Add styles for proper page formatting
-                page_with_styles = page.replace('</head>',
-                '''
-                <style>
-                    @page {
-                        size: A4;
-                        margin: 1cm;
-                    }
-                    @media print {
-                        body {
-                            width: 210mm;
-                            height: 297mm;
-                            margin: 0;
-                            padding: 1cm;
-                        }
-                        .page {
-                            page-break-after: always;
-                        }
-                        .page:last-child {
-                            page-break-after: avoid;
-                        }
-                    }
+            # Add styles and combine all pages
+            styled_content = html_content.replace('</head>',
+            '''
+            <style>
+                @page {
+                    size: A4;
+                    margin: 1cm;
+                }
+                @media print {
                     body {
-                        margin: 0;
-                        padding: 1cm;
                         width: 210mm;
                         height: 297mm;
-                        font-family: Arial, sans-serif;
-                        font-size: 11px;
-                        position: relative;
+                        margin: 0;
+                        padding: 1cm;
                     }
-                    .header {
-                        text-align: center;
-                        margin-bottom: 15px;
+                    .page {
+                        page-break-after: always;
                     }
-                    .header .title {
-                        font-size: 14px;
-                        font-weight: bold;
-                        margin-bottom: 5px;
+                    .page:last-child {
+                        page-break-after: avoid;
                     }
-                    .info-table {
-                        width: 100%;
-                        margin-bottom: 15px;
-                        border-spacing: 0;
-                    }
-                    .info-table td {
-                        padding: 3px;
-                        vertical-align: top;
-                    }
-                    table {
-                        border-collapse: collapse;
-                        width: 100%;
-                    }
-                    .psikogram {
-                        margin-top: 15px;
-                    }
-                    .psikogram th, .psikogram td {
-                        border: 1px solid black;
-                        padding: 4px;
-                        font-size: 11px;
-                    }
-                    .psikogram th {
-                        background-color: #f2f2f2;
-                        text-align: center;
-                    }
-                    .category-header {
-                        background-color: #f8d7da !important;
-                        text-align: center;
-                        font-weight: bold;
-                    }
-                    .footer {
-                        position: fixed;
-                        bottom: 1cm;
-                        left: 1cm;
-                        right: 1cm;
-                        text-align: center;
-                        font-style: italic;
-                        font-size: 10px;
-                        background: white;
-                        padding: 5px;
-                    }
-                    .legend-row td {
-                        text-align: center;
-                        padding: 2px;
-                        font-size: 11px;
-                        border: none;
-                    }
-                    .page-footer {
-                        position: fixed;
-                        bottom: 1cm;
-                        left: 1cm;
-                        right: 1cm;
-                        text-align: center;
-                        font-style: italic;
-                        font-size: 10px;
-                        background: white;
-                        padding: 5px;
-                    }
-                </style>
-                </head>
-                ''')
-                web_view.setHtml(page_with_styles)
-                web_views.append(web_view)
+                }
+                body {
+                    margin: 0;
+                    padding: 1cm;
+                    width: 210mm;
+                    height: 297mm;
+                    font-family: Arial, sans-serif;
+                    font-size: 11px;
+                    position: relative;
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 15px;
+                }
+                .header .title {
+                    font-size: 14px;
+                    font-weight: bold;
+                    margin-bottom: 5px;
+                }
+                .info-table {
+                    width: 100%;
+                    margin-bottom: 15px;
+                    border-spacing: 0;
+                }
+                .info-table td {
+                    padding: 3px;
+                    vertical-align: top;
+                }
+                table {
+                    border-collapse: collapse;
+                    width: 100%;
+                }
+                .psikogram {
+                    margin-top: 15px;
+                }
+                .psikogram th, .psikogram td {
+                    border: 1px solid black;
+                    padding: 4px;
+                    font-size: 11px;
+                }
+                .psikogram th {
+                    background-color: #f2f2f2;
+                    text-align: center;
+                }
+                .category-header {
+                    background-color: #f8d7da !important;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                .footer {
+                    position: fixed;
+                    bottom: 1cm;
+                    left: 1cm;
+                    right: 1cm;
+                    text-align: center;
+                    font-style: italic;
+                    font-size: 10px;
+                    background: white;
+                    padding: 5px;
+                }
+                .legend-row td {
+                    text-align: center;
+                    padding: 2px;
+                    font-size: 11px;
+                    border: none;
+                }
+                .page-footer {
+                    position: fixed;
+                    bottom: 1cm;
+                    left: 1cm;
+                    right: 1cm;
+                    text-align: center;
+                    font-style: italic;
+                    font-size: 10px;
+                    background: white;
+                    padding: 5px;
+                }
+            </style>
+            </head>
+            ''')
 
-            # Wait for all pages to load
-            for web_view in web_views:
-                loop = QEventLoop()
-                web_view.loadFinished.connect(loop.quit)
-                loop.exec_()
+            # Load content into web view and handle PDF generation
+            web_view.loadFinished.connect(lambda: self.handle_pdf_generation(web_view, printer))
+            web_view.setHtml(styled_content)
 
-            # Create PDF writer
-            pdf_writer = QPdfWriter(file_name)
-            pdf_writer.setPageSize(QPageSize(QPageSize.A4))
-            
-            # Create painter
-            painter = QPainter()
-            painter.begin(pdf_writer)
+            # Keep reference to web view to prevent garbage collection
+            self._temp_web_view = web_view
 
-            # Print each page
-            for i, web_view in enumerate(web_views):
-                if i > 0:
-                    pdf_writer.newPage()
-                web_view.page().view().render(painter)
-
-            painter.end()
-
-            QMessageBox.information(self, "Success", "PDF saved successfully!")
-            
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error saving PDF: {e}")
             print(f"Error saving PDF: {e}")
-    
-    # def save_pdf_file(self, pdf_data, file_name):
-    #     try:
-    #         with open(file_name, 'wb') as f:
-    #             f.write(pdf_data)
-    #     except Exception as e:
-    #         print(f"Error writing PDF file: {e}")
+
+    def handle_pdf_generation(self, web_view, printer):
+        def print_finished(success):
+            if success:
+                QMessageBox.information(self, "Success", "PDF saved successfully!")
+            else:
+                QMessageBox.critical(self, "Error", "Failed to save PDF")
+
+        web_view.page().print(printer, print_finished)
+
+    def save_pdf_file(self, pdf_data, file_name):
+        try:
+            with open(file_name, 'wb') as f:
+                f.write(pdf_data)
+                f.flush()
+                os.fsync(f.fileno())
+        except Exception as e:
+            print(f"Error writing PDF file: {e}")
 
     # def generate_common_formulas(self, row_number):
     #     """
@@ -3731,5 +3729,3 @@ if __name__ == "__main__":
     window = ExcelViewerApp()
     window.show()
     sys.exit(app.exec_())
-
-
