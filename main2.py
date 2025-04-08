@@ -3086,17 +3086,21 @@ class ExcelViewerApp(QWidget):
             if not file_name.lower().endswith('.pdf'):
                 file_name += '.pdf'
 
-            # Create a printer with PDF output
+            # Create a printer with PDF output and optimize settings
             printer = QPrinter(QPrinter.HighResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(file_name)
             printer.setPageSize(QPageSize(QPageSize.A4))
             printer.setPageMargins(10, 10, 10, 10, QPrinter.Millimeter)
+            
+            # Set PDF optimization options
+            printer.setResolution(300) # Optimal resolution for clear text
+            printer.setPdfVersion(QPrinter.PdfVersion_1_6) # Use optimized PDF version
 
             # Create web view for PDF generation
             web_view = QWebEngineView()
             
-            # Add styles and combine all pages
+            # Add styles with optimized settings
             styled_content = html_content.replace('</head>',
             '''
             <style>
@@ -3117,6 +3121,12 @@ class ExcelViewerApp(QWidget):
                     .page:last-child {
                         page-break-after: avoid;
                     }
+                    img {
+                        -webkit-optimize-contrast: true;
+                        image-rendering: optimizeQuality;
+                        max-width: 100%;
+                        height: auto;
+                    }
                 }
                 body {
                     margin: 0;
@@ -3126,6 +3136,7 @@ class ExcelViewerApp(QWidget):
                     font-family: Arial, sans-serif;
                     font-size: 11px;
                     position: relative;
+                    text-rendering: optimizeLegibility;
                 }
                 .header {
                     text-align: center;
