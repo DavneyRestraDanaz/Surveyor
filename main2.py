@@ -509,7 +509,8 @@ class ExcelViewerApp(QWidget):
         try:
             self.label.setText(f"File: {file_path}")
             self.excel_file_path = file_path
-            self.btn_select.setEnabled(False)
+            # Keep button enabled so user can select another file
+            self.btn_select.setEnabled(True)
             
             # Membaca seluruh sheet dalam file Excel dengan opsi keep_default_na=False
             # untuk mencegah nilai kosong menjadi NaN
@@ -2436,6 +2437,21 @@ class ExcelViewerApp(QWidget):
                     
             tgl_lahir_formatted = tgl_lahir_obj.strftime("%d %B %Y")
 
+            # Convert and format test date from Excel
+            try:
+                # Try parse with DD/MM/YYYY format
+                tgl_test_obj = datetime.strptime(tanggal_tes, "%d/%m/%Y")
+            except ValueError:
+                try:
+                    # If failed, try parse with YYYY-MM-DD format
+                    tgl_test_obj = datetime.strptime(tanggal_tes, "%Y-%m-%d")
+                except ValueError:
+                    # If still failed, use current date as fallback
+                    print(f"Error: Date format '{tanggal_tes}' not recognized. Using current date.")
+                    tgl_test_obj = datetime.now()
+                    
+            tanggal_tes_formatted = tgl_test_obj.strftime("%d %B %Y")
+
             # Get company name from Excel
             nama_pt_col = self.get_column_index("Nama PT")
             nama_pt_val = self.table.item(selected_row, nama_pt_col)
@@ -2468,7 +2484,7 @@ class ExcelViewerApp(QWidget):
                         <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">TANGGAL LAHIR</td>
                         <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">: {tgl_lahir_formatted}</td>
                         <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">TANGGAL TES</td>
-                        <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">: {tanggal_tes}</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">: {tanggal_tes_formatted}</td>
                     </tr>
                     <tr>
                         <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">PEMERIKSA</td>
@@ -3102,41 +3118,41 @@ class ExcelViewerApp(QWidget):
                     <div style="margin-bottom: 20px;">
                         <div style="margin-bottom: 15px;">
                             <div>
-                                <span style="display: inline-block; width: 120px;">Tanggal</span>
-                                <span>: {datetime.now().strftime("%d %B %Y")}</span>
+                                <span style="display: inline-block; width: 120px; font-size: 14px;">Tanggal</span>
+                                <span style="font-size: 14px;">: {datetime.now().strftime("%d %B %Y")}</span>
                             </div>
-                            <div style="font-style: italic; font-size: 11px; color: #666;">Date</div>
+                            <div style="font-style: italic; font-size: 12px; color: #666;">Date</div>
                         </div>
                         
                         <div style="margin-bottom: 15px;">
                             <div>
-                                <span style="display: inline-block; width: 120px;">Tanda Tangan</span>
+                                <span style="display: inline-block; width: 120px; font-size: 14px;">Tanda Tangan</span>
                             </div>
-                            <div style="font-style: italic; font-size: 11px; color: #666;">Signature</div>
+                            <div style="font-style: italic; font-size: 12px; color: #666;">Signature</div>
                         </div>
                         
                         <div style="margin-bottom: 15px;">
                             <div>
-                                <span style="display: inline-block; width: 120px;">Nama Psikolog</span>
-                                <span>: Chitra Ananda Mulia, M.Psi., Psikolog</span>
+                                <span style="display: inline-block; width: 120px; font-size: 14px;">Nama Psikolog</span>
+                                <span style="font-size: 14px;">: Chitra Ananda Mulia, M.Psi., Psikolog</span>
                             </div>
-                            <div style="font-style: italic; font-size: 11px; color: #666;">Psychologist Name</div>
+                            <div style="font-style: italic; font-size: 12px; color: #666;">Psychologist Name</div>
                         </div>
                         
                         <div style="margin-bottom: 15px;">
                             <div>
-                                <span style="display: inline-block; width: 120px;">Nomor STR/SIK</span>
-                                <span>:</span>
+                                <span style="display: inline-block; width: 120px; font-size: 14px;">Nomor STR/SIK</span>
+                                <span style="font-size: 14px;">:</span>
                             </div>
-                            <div style="font-style: italic; font-size: 11px; color: #666;">Registration Number</div>
+                            <div style="font-style: italic; font-size: 12px; color: #666;">Registration Number</div>
                         </div>
                         
                         <div style="margin-bottom: 15px;">
                             <div>
-                                <span style="display: inline-block; width: 120px;">Nomor SIPP/SIPPK</span>
-                                <span>: 1564-19-2-2</span>
+                                <span style="display: inline-block; width: 120px; font-size: 14px;">Nomor SIPP/SIPPK</span>
+                                <span style="font-size: 14px;">: 1564-19-2-2</span>
                             </div>
-                            <div style="font-style: italic; font-size: 11px; color: #666;">Licence Number</div>
+                            <div style="font-style: italic; font-size: 12px; color: #666;">Licence Number</div>
                         </div>
                     </div>
                 </div>
@@ -3201,7 +3217,7 @@ class ExcelViewerApp(QWidget):
 
             # Create web view for page 3
             web_view3 = QWebEngineView(preview_dialog)
-            web_view3.setZoomFactor(0.75)
+            web_view3.setZoomFactor(0.7)
             web_view3.setFixedWidth(int(dialog_width * 0.3))  # Adjust width to 30% for 3 pages
             if len(pages) > 2:
                 web_view3.setHtml(pages[2])
