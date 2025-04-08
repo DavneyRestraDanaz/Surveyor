@@ -726,6 +726,200 @@ class ExcelViewerApp(QWidget):
                             print(f"Menambahkan kolom yang hilang: {col}")
                             new_df[col] = ""
 
+                    # Tambahkan kolom psikogram (46-71)
+                    psikogram_columns = [
+                        "Logika Berpikir 1", "Daya Analisa 3", "Kemampuan Verbal 2 dam 4", 
+                        "Kemampuan Numerik 5", "Sistematika Kerja/ C D R", "Orientasi Hasil/ N G",
+                        "Fleksibilitas/ T V", "Motivasi Berprestasi/ A", "Kerjasama/ P I",
+                        "Keterampilan Interpersonal/ B S", "Stabilitas Emosi/ E PHQ",
+                        "Pegembangan Diri/ W", "Mengelola Perubahan/ Z K"
+                    ]
+                    
+                    # Tambahkan kolom referensi (.1)
+                    psikogram_ref_columns = [col + ".1" for col in psikogram_columns]
+                    
+                    # Pastikan semua kolom psikogram ada
+                    for col in psikogram_columns + psikogram_ref_columns:
+                        if col not in new_df.columns:
+                            new_df[col] = ""
+                            print(f"Menambahkan kolom psikogram yang tidak ada: {col}")
+
+                    # Mapping untuk nama kolom input
+                    input_column_mapping = {
+                        "Sistematika Kerja/ C D R": "CDR",
+                        "Orientasi Hasil/ N G": "NG",
+                        "Fleksibilitas/ T V": "TV",
+                        "Motivasi Berprestasi/ A": "A",  # Perhatikan ini hanya "A"
+                        "Kerjasama/ P I": "PI",
+                        "Keterampilan Interpersonal/ B S": "BS",
+                        "Mengelola Perubahan/ Z K": "ZK"
+                    }
+
+                    # Mapping untuk kolom dasar
+                    base_column_mapping = {
+                        "Logika Berpikir 1": "SE / Konkrit Praktis",
+                        "Daya Analisa 3": "WA/ Verbal",
+                        "Kemampuan Verbal 2 dam 4": "GE / Daya Abstraksi Verbal",
+                        "Kemampuan Numerik 5": " AN / Flexibilitas Pikir",
+                        "Stabilitas Emosi/ E PHQ": "E",
+                        "Pegembangan Diri/ W": "W"
+                    }
+
+                    # Mapping untuk kolom papikostick
+                    papiko_column_mapping = {
+                        "Sistematika Kerja/ C D R": "CDR",
+                        "Orientasi Hasil/ N G": "NG",
+                        "Fleksibilitas/ T V": "TV",
+                        "Motivasi Berprestasi/ A": "A",
+                        "Kerjasama/ P I": "PI",
+                        "Keterampilan Interpersonal/ B S": "BS",
+                        "Mengelola Perubahan/ Z K": "ZK"
+                    }
+
+                    # Debug: Print kolom yang ada
+                    print("Kolom yang tersedia dalam DataFrame:")
+                    print(new_df.columns.tolist())
+
+                    # Hitung nilai untuk kolom psikogram (46-71)
+                    for row_idx in range(len(new_df)):
+                        try:
+                            # Proses kolom-kolom dasar terlebih dahulu
+                            for output_col, input_col in base_column_mapping.items():
+                                try:
+                                    print(f"Processing base column {output_col} using input column {input_col}")
+                                    if input_col in new_df.columns:
+                                        val = pd.to_numeric(new_df.iloc[row_idx][input_col], errors='coerce')
+                                        print(f"Value for {input_col} = {val}")
+                                        if pd.notna(val):
+                                            # Untuk kolom E dan W, gunakan range PAPIKOSTICK
+                                            if input_col in ["E", "W"]:
+                                                if val < 2:
+                                                    new_df.at[row_idx, output_col] = "R"
+                                                elif val < 4:
+                                                    new_df.at[row_idx, output_col] = "K"
+                                                elif val < 6:
+                                                    new_df.at[row_idx, output_col] = "C"
+                                                elif val < 9:
+                                                    new_df.at[row_idx, output_col] = "B"
+                                                else:
+                                                    new_df.at[row_idx, output_col] = "T"
+                                            else:
+                                                # Untuk kolom lain, gunakan range 80-140
+                                                if val < 80:
+                                                    new_df.at[row_idx, output_col] = "R"
+                                                elif val < 100:
+                                                    new_df.at[row_idx, output_col] = "K"
+                                                elif val < 120:
+                                                    new_df.at[row_idx, output_col] = "C"
+                                                elif val < 140:
+                                                    new_df.at[row_idx, output_col] = "B"
+                                                else:
+                                                    new_df.at[row_idx, output_col] = "T"
+                                            print(f"Set {output_col} = {new_df.at[row_idx, output_col]}")
+                                        else:
+                                            print(f"Warning: NaN value for {input_col}, setting default value 'R'")
+                                            new_df.at[row_idx, output_col] = "R"
+                                    else:
+                                        print(f"Warning: Column {input_col} not found in DataFrame")
+                                except Exception as e:
+                                    print(f"Error processing base column {output_col} for row {row_idx}: {e}")
+
+                            # Proses kolom-kolom papikostick
+                            for output_col, input_col in papiko_column_mapping.items():
+                                try:
+                                    print(f"Processing papiko column {output_col} using input column {input_col}")
+                                    if input_col in new_df.columns:
+                                        # Coba ambil nilai dari kolom kombinasi terlebih dahulu
+                                        if input_col in ["CDR", "NG", "TV", "PI", "BS", "ZK"]:
+                                            # Ambil nilai dari kolom-kolom yang membentuk kombinasi
+                                            if input_col == "CDR":
+                                                c_val = pd.to_numeric(new_df.iloc[row_idx]["C"], errors='coerce')
+                                                d_val = pd.to_numeric(new_df.iloc[row_idx]["D"], errors='coerce')
+                                                r_val = pd.to_numeric(new_df.iloc[row_idx]["R"], errors='coerce')
+                                                if pd.notna(c_val) and pd.notna(d_val) and pd.notna(r_val):
+                                                    val = (c_val + d_val + r_val) / 3
+                                                else:
+                                                    val = float('nan')
+                                            elif input_col == "NG":
+                                                n_val = pd.to_numeric(new_df.iloc[row_idx]["N"], errors='coerce')
+                                                g_val = pd.to_numeric(new_df.iloc[row_idx]["G"], errors='coerce')
+                                                if pd.notna(n_val) and pd.notna(g_val):
+                                                    val = (n_val + g_val) / 2
+                                                else:
+                                                    val = float('nan')
+                                            elif input_col == "TV":
+                                                t_val = pd.to_numeric(new_df.iloc[row_idx]["T"], errors='coerce')
+                                                v_val = pd.to_numeric(new_df.iloc[row_idx]["V"], errors='coerce')
+                                                if pd.notna(t_val) and pd.notna(v_val):
+                                                    val = (t_val + v_val) / 2
+                                                else:
+                                                    val = float('nan')
+                                            elif input_col == "PI":
+                                                p_val = pd.to_numeric(new_df.iloc[row_idx]["P"], errors='coerce')
+                                                i_val = pd.to_numeric(new_df.iloc[row_idx]["I"], errors='coerce')
+                                                if pd.notna(p_val) and pd.notna(i_val):
+                                                    val = (p_val + i_val) / 2
+                                                else:
+                                                    val = float('nan')
+                                            elif input_col == "BS":
+                                                b_val = pd.to_numeric(new_df.iloc[row_idx]["B"], errors='coerce')
+                                                s_val = pd.to_numeric(new_df.iloc[row_idx]["S"], errors='coerce')
+                                                if pd.notna(b_val) and pd.notna(s_val):
+                                                    val = (b_val + s_val) / 2
+                                                else:
+                                                    val = float('nan')
+                                            elif input_col == "ZK":
+                                                z_val = pd.to_numeric(new_df.iloc[row_idx]["Z"], errors='coerce')
+                                                k_val = pd.to_numeric(new_df.iloc[row_idx]["K"], errors='coerce')
+                                                if pd.notna(z_val) and pd.notna(k_val):
+                                                    val = (z_val + k_val) / 2
+                                                else:
+                                                    val = float('nan')
+                                        else:
+                                            val = pd.to_numeric(new_df.iloc[row_idx][input_col], errors='coerce')
+                                        
+                                        print(f"Value for {input_col} = {val}")
+                                        if pd.notna(val):
+                                            if val < 2:
+                                                new_df.at[row_idx, output_col] = "R"
+                                            elif val < 4:
+                                                new_df.at[row_idx, output_col] = "K"
+                                            elif val < 6:
+                                                new_df.at[row_idx, output_col] = "C"
+                                            elif val < 9:
+                                                new_df.at[row_idx, output_col] = "B"
+                                            else:
+                                                new_df.at[row_idx, output_col] = "T"
+                                            print(f"Set {output_col} = {new_df.at[row_idx, output_col]}")
+                                        else:
+                                            print(f"Warning: NaN value for {input_col}, setting default value 'R'")
+                                            new_df.at[row_idx, output_col] = "R"
+                                    else:
+                                        print(f"Warning: Column {input_col} not found in DataFrame")
+                                except Exception as e:
+                                    print(f"Error processing papiko column {output_col} for row {row_idx}: {e}")
+
+                            # Untuk kolom .1 (59-71), gunakan get_sheet3_reference
+                            for base_col in psikogram_columns:
+                                try:
+                                    ref_col = base_col + ".1"
+                                    base_val = new_df.at[row_idx, base_col]
+                                    print(f"Processing reference for {base_col} with value {base_val}")
+                                    if pd.notna(base_val) and base_val.strip() != "":
+                                        ref_val = self.get_sheet3_reference(base_col, base_val)
+                                        new_df.at[row_idx, ref_col] = ref_val
+                                        print(f"Set {ref_col} = {ref_val}")
+                                    else:
+                                        print(f"Warning: Empty or NaN value for {base_col}, getting reference for default 'R'")
+                                        ref_val = self.get_sheet3_reference(base_col, "R")
+                                        new_df.at[row_idx, ref_col] = ref_val
+                                except Exception as e:
+                                    print(f"Error processing reference for {base_col}: {e}")
+
+                        except Exception as e:
+                            print(f"Error pada baris {row_idx}: {e}")
+                            continue
+
                     # Pastikan tidak ada nilai NaN yang tersisa
                     self.df_sheet1 = new_df.fillna("")
                     self.columns = list(new_df.columns)
@@ -3237,202 +3431,6 @@ class ExcelViewerApp(QWidget):
                 os.fsync(f.fileno())
         except Exception as e:
             print(f"Error writing PDF file: {e}")
-
-    # def generate_common_formulas(self, row_number):
-    #     """
-    #     Menghasilkan formula-formula umum dengan nomor baris yang sesuai.
-    #     """
-    #     formulas = {
-    #         'SDR/SDRI': f"=IF(F{row_number}=\"P\",\"Sdri.\",\"Sdr.\")",
-    #         'Keterangan PHQ': f"=@IFS(I{row_number}<5,\"Tidak ada\",I{row_number}<10,\"Ringan\",I{row_number}<15,\"Sedang\",I{row_number}<20,\"Cukup Berat\",I{row_number}<28,\"Parah\")",
-    #         'IQ ': f"=SUM(L{row_number}:P{row_number})/5",
-    #         'Unnamed: 16': f"=(M{row_number}+O{row_number})/2",
-    #         'KLASIFIKASI': f"=@IFS(K{row_number}<79,\"Rendah\",K{row_number}<90,\"Dibawah Rata-Rata\",K{row_number}<110,\"Rata-Rata\",K{row_number}<120,\"Diatas Rata-Rata\",K{row_number}>119,\"Superior\")",
-    #         'C (Coding)': f"=@IFS(AE{row_number}=1,9,AE{row_number}=2,8,AE{row_number}=3,7,AE{row_number}=4,6,AE{row_number}=5,5,AE{row_number}=6,4,AE{row_number}=7,3,AE{row_number}=8,2,AE{row_number}=9,1)",
-    #         'NG': f"=(S{row_number}+T{row_number})/2",
-    #         'CDR': f"=(AE{row_number}+AG{row_number}+AH{row_number})/3",
-    #         'TV': f"=(Y{row_number}+Z{row_number})/2",
-    #         'PI': f"=(W{row_number}+X{row_number})/2",
-    #         'BS': f"=(AA{row_number}+AB{row_number})/2",
-    #         'ZK': f"=(AI{row_number}+AK{row_number})/2",
-    #     }
-    #     return formulas
-    # def set_formulas_direct(self, sheet, header_row):
-    #     """
-    #     Fungsi untuk mengatur formula Excel secara langsung pada sheet
-    #     """
-    #     try:
-    #         # Looping untuk setiap baris data (di bawah header)
-    #         for row_idx in range(header_row + 1, sheet.max_row + 1):
-    #             # Formula untuk SDR/SDRI
-    #             sdr_sdri_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("SDR/SDRI"))
-    #             sdr_sdri_cell.value = f'=IF(F{row_idx}="P","Sdri.","Sdr.")'
-                
-    #             # Formula untuk Keterangan PHQ
-    #             ket_phq_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("Keterangan PHQ"))
-    #             ket_phq_cell.value = f'=IFS(I{row_idx}<5,"Tidak ada",I{row_idx}<10,"Ringan",I{row_idx}<15,"Sedang",I{row_idx}<20,"Cukup Berat",I{row_idx}<28,"Parah")'
-                
-    #             # Formula untuk IQ
-    #             iq_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("IQ "))
-    #             iq_cell.value = f'=SUM(L{row_idx}:P{row_idx})/5'
-                
-    #             # Formula untuk Unnamed: 16
-    #             unnamed_16_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("Unnamed: 16"))
-    #             unnamed_16_cell.value = f'=(M{row_idx}+O{row_idx})/2'
-                
-    #             # Formula untuk KLASIFIKASI
-    #             klasifikasi_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("KLASIFIKASI"))
-    #             klasifikasi_cell.value = f'=IFS(K{row_idx}<79,"Rendah",K{row_idx}<90,"Dibawah Rata-Rata",K{row_idx}<110,"Rata-Rata",K{row_idx}<120,"Diatas Rata-Rata",K{row_idx}>119,"Superior")'
-                
-    #             # Formula untuk C (Coding)
-    #             c_coding_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("C (Coding)"))
-    #             c_coding_cell.value = f'=IFS(AE{row_idx}=1,9,AE{row_idx}=2,8,AE{row_idx}=3,7,AE{row_idx}=4,6,AE{row_idx}=5,5,AE{row_idx}=6,4,AE{row_idx}=7,3,AE{row_idx}=8,2,AE{row_idx}=9,1)'
-                
-    #             # Formula untuk NG
-    #             ng_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("NG"))
-    #             ng_cell.value = f'=(S{row_idx}+T{row_idx})/2'
-                
-    #             # Formula untuk CDR
-    #             cdr_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("CDR"))
-    #             cdr_cell.value = f'=(AE{row_idx}+AG{row_idx}+AH{row_idx})/3'
-                
-    #             # Formula untuk TV
-    #             tv_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("TV"))
-    #             tv_cell.value = f'=(Y{row_idx}+Z{row_idx})/2'
-                
-    #             # Formula untuk PI
-    #             pi_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("PI"))
-    #             pi_cell.value = f'=(W{row_idx}+X{row_idx})/2'
-                
-    #             # Formula untuk BS
-    #             bs_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("BS"))
-    #             bs_cell.value = f'=(AA{row_idx}+AB{row_idx})/2'
-                
-    #             # Formula untuk ZK
-    #             zk_cell = sheet.cell(row=row_idx, column=self.get_excel_column_index("ZK"))
-    #             zk_cell.value = f'=(AI{row_idx}+AK{row_idx})/2'
-
-    #             # Formula untuk Logika Berpikir 1
-    #             logika_cell = sheet.cell(row=row_idx, column=45)
-    #             logika_cell.value = f'=IF(L{row_idx}<80,"R",IF(L{row_idx}<100,"K",IF(L{row_idx}<120,"C",IF(L{row_idx}<140,"B","T"))))'
-
-    #             # Formula untuk Daya Analisa 3
-    #             analisa_cell = sheet.cell(row=row_idx, column=46)
-    #             analisa_cell.value = f'=IF(M{row_idx}<80,"R",IF(M{row_idx}<100,"K",IF(M{row_idx}<120,"C",IF(M{row_idx}<140,"B","T"))))'
-
-    #             # Formula untuk Kemampuan Verbal 2 dam 4
-    #             verbal_cell = sheet.cell(row=row_idx, column=47)
-                
-    #             # Formulasi baru untuk kolom 45-57
-    #             # Column 45: Logika Berpikir 1
-    #             try:
-    #                 logika_cell = sheet.cell(row=row_idx, column=45)
-    #                 logika_cell.value = f'=IF(L{row_idx}<80,"R",IF(L{row_idx}<100,"K",IF(L{row_idx}<120,"C",IF(L{row_idx}<140,"B","T"))))'
-    #             except Exception as e:
-    #                 print(f"Error setting Logika Berpikir formula: {e}")
-                
-    #             # Column 46: Daya Analisa 3
-    #             try:
-    #                 daya_analisa_cell = sheet.cell(row=row_idx, column=46)
-    #                 daya_analisa_cell.value = f'=IF(M{row_idx}<80,"R",IF(M{row_idx}<100,"K",IF(M{row_idx}<120,"C",IF(M{row_idx}<140,"B","T"))))'
-    #             except Exception as e:
-    #                 print(f"Error setting Daya Analisa formula: {e}")
-                
-    #             # Column 47: Kemampuan Verbal 2 dam 4
-    #             try:
-    #                 verbal_cell = sheet.cell(row=row_idx, column=47)
-    #                 verbal_cell.value = f'=IF(O{row_idx}<80,"R",IF(O{row_idx}<100,"K",IF(O{row_idx}<120,"C",IF(O{row_idx}<140,"B","T"))))'
-    #             except Exception as e:
-    #                 print(f"Error setting Kemampuan Verbal formula: {e}")
-                
-    #             # Column 48: Kemampuan Numerik 5
-    #             try:
-    #                 numerik_cell = sheet.cell(row=row_idx, column=48)
-    #                 numerik_cell.value = f'=IF(N{row_idx}<80,"R",IF(N{row_idx}<100,"K",IF(N{row_idx}<120,"C",IF(N{row_idx}<140,"B","T"))))'
-    #             except Exception as e:
-    #                 print(f"Error setting Kemampuan Numerik formula: {e}")
-                
-    #             # Column 49: Sistematika Kerja/ C D R
-    #             try:
-    #                 sistematika_cell = sheet.cell(row=row_idx, column=49)
-    #                 sistematika_cell.value = f'=IFS(AO{row_idx}<2,"R",AO{row_idx}<4,"K",AO{row_idx}<6,"C",AO{row_idx}<9,"B",AO{row_idx}=9,"T")'
-    #             except Exception as e:
-    #                 print(f"Error setting Sistematika Kerja formula: {e}")
-                
-    #             # Column 50: Orientasi Hasil/ N G
-    #             try:
-    #                 orientasi_cell = sheet.cell(row=row_idx, column=50)
-    #                 orientasi_cell.value = f'=IFS(AN{row_idx}<2,"R",AN{row_idx}<4,"K",AN{row_idx}<6,"C",AN{row_idx}<9,"B",AN{row_idx}=9,"T")'
-    #             except Exception as e:
-    #                 print(f"Error setting Orientasi Hasil formula: {e}")
-                
-    #             # Column 51: Fleksibilitas/ T V
-    #             try:
-    #                 fleksibilitas_cell = sheet.cell(row=row_idx, column=51)
-    #                 fleksibilitas_cell.value = f'=IFS(AP{row_idx}<2,"R",AP{row_idx}<4,"K",AP{row_idx}<6,"C",AP{row_idx}<9,"B",AP{row_idx}=9,"T")'
-    #             except Exception as e:
-    #                 print(f"Error setting Fleksibilitas formula: {e}")
-                
-    #             # Column 52: Motivasi Berprestasi/ A
-    #             try:
-    #                 motivasi_cell = sheet.cell(row=row_idx, column=52)
-    #                 motivasi_cell.value = f'=IFS(U{row_idx}<2,"R",U{row_idx}<4,"K",U{row_idx}<6,"C",U{row_idx}<9,"B",U{row_idx}=9,"T")'
-    #             except Exception as e:
-    #                 print(f"Error setting Motivasi Berprestasi formula: {e}")
-                
-    #             # Column 53: Kerjasama/ P I
-    #             try:
-    #                 kerjasama_cell = sheet.cell(row=row_idx, column=53)
-    #                 kerjasama_cell.value = f'=IFS(AQ{row_idx}<2,"R",AQ{row_idx}<4,"K",AQ{row_idx}<6,"C",AQ{row_idx}<9,"B",AQ{row_idx}=9,"T")'
-    #             except Exception as e:
-    #                 print(f"Error setting Kerjasama formula: {e}")
-                
-    #             # Column 54: Keterampilan Interpersonal/ B S
-    #             try:
-    #                 interpersonal_cell = sheet.cell(row=row_idx, column=54)
-    #                 interpersonal_cell.value = f'=IFS(AR{row_idx}<2,"R",AR{row_idx}<4,"K",AR{row_idx}<6,"C",AR{row_idx}<9,"B",AR{row_idx}=9,"T")'
-    #             except Exception as e:
-    #                 print(f"Error setting Keterampilan Interpersonal formula: {e}")
-                
-    #             # Column 55: Stabilitas Emosi/ E PHQ
-    #             try:
-    #                 emosi_cell = sheet.cell(row=row_idx, column=55)
-    #                 emosi_cell.value = f'=IFS(AJ{row_idx}<2,"R",AJ{row_idx}<4,"K",AJ{row_idx}<6,"C",AJ{row_idx}<9,"B",AJ{row_idx}=9,"T")'
-    #             except Exception as e:
-    #                 print(f"Error setting Stabilitas Emosi formula: {e}")
-                
-    #             # Column 56: Pegembangan Diri/ W
-    #             try:
-    #                 diri_cell = sheet.cell(row=row_idx, column=56)
-    #                 diri_cell.value = f'=IFS(AM{row_idx}<2,"R",AM{row_idx}<4,"K",AM{row_idx}<6,"C",AM{row_idx}<9,"B",AM{row_idx}=9,"T")'
-    #             except Exception as e:
-    #                 print(f"Error setting Pegembangan Diri formula: {e}")
-                
-    #             # Column 57: Mengelola Perubahan/ Z K
-    #             try:
-    #                 perubahan_cell = sheet.cell(row=row_idx, column=57)
-    #                 perubahan_cell.value = f'=IFS(AS{row_idx}<2,"R",AS{row_idx}<4,"K",AS{row_idx}<6,"C",AS{row_idx}<9,"B",AS{row_idx}=9,"T")'
-    #             except Exception as e:
-    #                 print(f"Error setting Mengelola Perubahan formula: {e}")
-            
-    #         print("Formula berhasil diaplikasikan langsung ke sheet Excel")
-    #         return True
-    #     except Exception as e:
-    #         print(f"Error saat menerapkan formula: {e}")
-    #         return False
-    
-    # def get_excel_column_index(self, column_name):
-    #     """
-    #     Mendapatkan indeks kolom Excel (1-based) dari nama kolom
-    #     """
-    #     try:
-    #         # Cari indeks kolom (0-based)
-    #         idx = self.get_column_index(column_name)
-    #         # Konversi ke indeks Excel (1-based)
-    #         return idx + 1 if idx >= 0 else None
-    #     except Exception as e:
-    #         print(f"Error mendapatkan indeks kolom Excel: {e}")
-    #         return None
 
     def apply_psikogram_formulas(self, sheet, row_idx):
         """
