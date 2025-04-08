@@ -170,6 +170,12 @@ class ExcelViewerApp(QWidget):
             label.setFont(QFont("Arial", 10))
             field = QLineEdit()
             field.setFixedHeight(30)
+            
+            # Make IQ and Unnamed:16 fields read-only
+            if placeholder in ["IQ ", "Unnamed: 16"]:
+                field.setReadOnly(True)
+                field.setStyleSheet("background-color: #f0f0f0;")  # Light gray background to indicate read-only
+            
             self.ist_inputs.append(field)
             row = i // 3  # Arrange fields in rows of 3
             col = (i % 3) * 2
@@ -2447,7 +2453,7 @@ class ExcelViewerApp(QWidget):
                     </div>
                     <div style="text-align: right; font-size: 12px;">
                         <div style="font-weight: bold; color: #1f4e79;">RAHASIA</div>
-                        <div style="color: #1f4e79;">No. {row_data.get('No', '')} / {row_data.get('No Tes', '')}</div>
+                        <div style="color: #1f4e79;">No. {row_data.get('No', '')}{row_data.get('No Tes', '')}</div>
                     </div>
                 </div>
 
@@ -2987,7 +2993,7 @@ class ExcelViewerApp(QWidget):
                         </div>
                         <div style="text-align: right; font-size: 12px;">
                             <div style="font-weight: bold; color: #1f4e79;">RAHASIA</div>
-                            <div style="color: #1f4e79;">No. {row_data.get('No', '')} / {row_data.get('No Tes', '')}</div>
+                            <div style="color: #1f4e79;">No. {row_data.get('No', '')}{row_data.get('No Tes', '')}</div>
                         </div>
                     </div>
 
@@ -3089,7 +3095,7 @@ class ExcelViewerApp(QWidget):
                         </div>
                         <div style="text-align: right; font-size: 12px;">
                             <div style="font-weight: bold; color: #1f4e79;">RAHASIA</div>
-                            <div style="color: #1f4e79;">No. {row_data.get('No', '')} / {row_data.get('No Tes', '')}</div>
+                            <div style="color: #1f4e79;">{row_data.get('No', '')}{row_data.get('No Tes', '')}</div>
                         </div>
                     </div>
 
@@ -3214,13 +3220,6 @@ class ExcelViewerApp(QWidget):
             save_button.setFixedWidth(200)  # Set fixed width for button
             save_button.clicked.connect(lambda: self.save_as_pdf(html_content))
             button_layout.addWidget(save_button)
-            
-            # Add direct print button without preview
-            print_button = QPushButton("Print PDF", preview_dialog)
-            print_button.setFixedHeight(30)
-            print_button.setFixedWidth(200)
-            print_button.clicked.connect(lambda: self.print_pdf(html_content))
-            button_layout.addWidget(print_button)
             
             button_layout.addStretch()
             main_layout.addLayout(button_layout)
