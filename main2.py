@@ -3129,7 +3129,7 @@ class ExcelViewerApp(QWidget):
                         <div style="margin-bottom: 35px;">
                             <div>
                                 <span style="display: inline-block; width: 180px; font-size: 16px;">Tanggal</span>
-                                <span style="font-size: 16px;">: {datetime.now().strftime("%d %B %Y")}</span>
+                                <span style="font-size: 16px;">: {tanggal_tes_formatted}</span>
                             </div>
                             <div style="font-style: italic; font-size: 14px; color: #666; margin-top: 5px;">Date</div>
                         </div>
