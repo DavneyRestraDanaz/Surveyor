@@ -1636,7 +1636,7 @@ class ExcelViewerApp(QWidget):
                     unnamed_16_idx = self.get_column_index("Unnamed: 16")
                     if unnamed_16_idx >= 0:
                         # Formula: =(M4+O4)/2 --> (AN + GE)/2
-                        unnamed_16_val = (an_val + ge_val) / 2
+                        unnamed_16_val = (wa_val + ge_val) / 2
                         unnamed_16_item = QTableWidgetItem()
                         if unnamed_16_val.is_integer():
                             unnamed_16_item.setData(Qt.DisplayRole, int(unnamed_16_val))
