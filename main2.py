@@ -12,7 +12,7 @@ from PyQt5.QtGui import (
     QPdfWriter, QPainter
 )
 from PyQt5.QtCore import (
-    Qt, QEventLoop, QSizeF, QMarginsF, QUrl
+    Qt, QEventLoop, QSizeF, QMarginsF, QUrl, QTimer
 )
 from PyQt5.QtPrintSupport import QPrinter, QPrinterInfo, QPrintDialog, QPrintPreviewDialog
 from PyQt5.QtWebEngineWidgets import QWebEngineView
@@ -3179,7 +3179,19 @@ class ExcelViewerApp(QWidget):
             </html>
             """
 
-            # Create and show preview dialog
+            # Create loading dialog
+            loading_dialog = QDialog(self)
+            loading_dialog.setWindowTitle("Loading Preview")
+            loading_dialog.setFixedSize(200, 100)
+            loading_layout = QVBoxLayout(loading_dialog)
+            loading_label = QLabel("Loading PDF preview...", loading_dialog)
+            loading_label.setAlignment(Qt.AlignCenter)
+            loading_layout.addWidget(loading_label)
+            
+            # Show loading dialog
+            loading_dialog.show()
+            
+            # Create preview dialog but don't show it yet
             preview_dialog = QDialog(self)
             preview_dialog.setWindowTitle("Preview PDF")
             
@@ -3208,31 +3220,21 @@ class ExcelViewerApp(QWidget):
             # Create horizontal layout for preview pages
             preview_layout = QHBoxLayout()
             
-            # Create web view for page 1
-            web_view1 = QWebEngineView(preview_dialog)
-            web_view1.setZoomFactor(0.6)
-            web_view1.setFixedWidth(int(dialog_width * 0.3))  # Adjust width to 30% for 3 pages
-
-            # Split HTML content at page break
+            # Create web views for all pages
+            web_views = []
+            zoom_factors = [0.6, 0.55, 0.7]
             pages = html_content.split('<div class="page-break"></div>')
-            web_view1.setHtml(pages[0])
-            preview_layout.addWidget(web_view1)
             
-            # Create web view for page 2
-            web_view2 = QWebEngineView(preview_dialog)
-            web_view2.setZoomFactor(0.55)
-            web_view2.setFixedWidth(int(dialog_width * 0.3))  # Adjust width to 30% for 3 pages
-            if len(pages) > 1:
-                web_view2.setHtml(pages[1])
-            preview_layout.addWidget(web_view2)
-
-            # Create web view for page 3
-            web_view3 = QWebEngineView(preview_dialog)
-            web_view3.setZoomFactor(0.7)
-            web_view3.setFixedWidth(int(dialog_width * 0.3))  # Adjust width to 30% for 3 pages
-            if len(pages) > 2:
-                web_view3.setHtml(pages[2])
-            preview_layout.addWidget(web_view3)
+            for i in range(3):
+                web_view = QWebEngineView(preview_dialog)
+                web_view.setZoomFactor(zoom_factors[i])
+                web_view.setFixedWidth(int(dialog_width * 0.3))
+                
+                if i < len(pages):
+                    web_view.setHtml(pages[i])
+                    
+                preview_layout.addWidget(web_view)
+                web_views.append(web_view)
             
             # Add preview layout to main layout
             main_layout.addLayout(preview_layout)
@@ -3244,14 +3246,32 @@ class ExcelViewerApp(QWidget):
             # Add save PDF button
             save_button = QPushButton("Save PDF", preview_dialog)
             save_button.setFixedHeight(30)
-            save_button.setFixedWidth(200)  # Set fixed width for button
+            save_button.setFixedWidth(200)
             save_button.clicked.connect(lambda: self.save_as_pdf(html_content))
             button_layout.addWidget(save_button)
             
             button_layout.addStretch()
             main_layout.addLayout(button_layout)
             
-            preview_dialog.exec_()
+            # Create timer to check if all pages are loaded
+            load_timer = QTimer()
+            loaded_count = [0]  # Using list to modify in lambda
+            
+            def check_loading():
+                if loaded_count[0] >= len(web_views):
+                    load_timer.stop()
+                    loading_dialog.close()
+                    preview_dialog.exec_()
+            
+            # Connect loadFinished signals
+            for web_view in web_views:
+                web_view.loadFinished.connect(lambda: (
+                    loaded_count.__setitem__(0, loaded_count[0] + 1)
+                ))
+            
+            # Start timer
+            load_timer.timeout.connect(check_loading)
+            load_timer.start(100)  # Check every 100ms
             
         except Exception as e:
             print(f"Error saat preview: {e}")
