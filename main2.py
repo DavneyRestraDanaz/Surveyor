@@ -1011,33 +1011,65 @@ class ExcelViewerApp(QWidget):
             traceback.print_exc()
 
     def show_calendar(self, field_type):
+        # Create calendar widget
         calendar = QCalendarWidget(self)
-        calendar.setWindowFlags(Qt.Popup)
+        calendar.setGridVisible(True)
         
-        if field_type == "TGL Lahir":
-            # For TGL Lahir, use the 3rd input field
-            target_field = self.personal_inputs[3]
-            calendar.clicked.connect(lambda date: self.set_date(date, "TGL Lahir"))
-        elif field_type == "Tgl Test":
-            # For Tgl Test, use the 2nd input field
-            target_field = self.personal_inputs[2]
-            calendar.clicked.connect(lambda date: self.set_date(date, "Tgl Test"))
+        # Get the target field based on field_type
+        target_field = None
+        if field_type == "tgl_lahir":
+            target_field = self.tgl_lahir_field
+        elif field_type == "tgl_test":
+            target_field = self.tgl_test_field
+        elif field_type == "page3_date":
+            target_field = self.date_input
         
-        # Position calendar below the button
-        pos = target_field.mapToGlobal(target_field.rect().bottomLeft())
-        calendar.move(pos)
-        calendar.show()
+        if target_field:
+            # Create popup window
+            popup = QDialog(self)
+            popup.setWindowTitle("Pilih Tanggal")
+            layout = QVBoxLayout()
+            
+            # Add calendar to popup
+            layout.addWidget(calendar)
+            
+            # Add OK button
+            ok_button = QPushButton("OK")
+            ok_button.clicked.connect(lambda: self.set_date(calendar.selectedDate(), field_type))
+            ok_button.clicked.connect(popup.close)
+            layout.addWidget(ok_button)
+            
+            popup.setLayout(layout)
+            
+            # Position popup below the target field
+            pos = target_field.mapToGlobal(target_field.rect().bottomLeft())
+            popup.move(pos)
+            
+            # Show popup
+            popup.exec_()
+        else:
+            print(f"Error: Invalid field type {field_type}")
 
     def set_date(self, date, field_type):
-        # Format date as dd/MM/yyyy
-        formatted_date = date.toString("dd/MM/yyyy")
+        # Format tanggal sebagai "d MMMM yyyy" dalam bahasa Indonesia
+        months_id = {
+            1: "Januari", 2: "Februari", 3: "Maret", 4: "April",
+            5: "Mei", 6: "Juni", 7: "Juli", 8: "Agustus",
+            9: "September", 10: "Oktober", 11: "November", 12: "Desember"
+        }
         
-        if field_type == "TGL Lahir":
-            # Set TGL Lahir field (index 3)
-            self.personal_inputs[3].setText(formatted_date)
-        elif field_type == "Tgl Test":
-            # Set Tgl Test field (index 2)
-            self.personal_inputs[2].setText(formatted_date)
+        day = str(date.day())
+        month = months_id[date.month()]
+        year = str(date.year())
+        formatted_date = f"{day} {month} {year}"
+        
+        # Set the date in the appropriate field
+        if field_type == "tgl_lahir":
+            self.tgl_lahir_field.setText(formatted_date)
+        elif field_type == "tgl_test":
+            self.tgl_test_field.setText(formatted_date)
+        elif field_type == "page3_date":
+            self.date_input.setText(formatted_date)
             
     def update_sdr_sdri(self):
         # This will be called after gender dialog closes
@@ -2284,6 +2316,11 @@ class ExcelViewerApp(QWidget):
                 QMessageBox.warning(self, "Warning", "Please select a row to preview first!")
                 return
 
+            # Show page 3 input dialog
+            page3_dialog = self.show_page3_input_dialog()
+            if page3_dialog.exec_() != QDialog.Accepted:
+                return
+
             # Get absolute path for logo
             import os
             import base64
@@ -2498,7 +2535,7 @@ class ExcelViewerApp(QWidget):
                     </tr>
                     <tr>
                         <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">PEMERIKSA</td>
-                        <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">: Chitra Ananda Mulia, M.Psi., Psikolog</td>
+                        <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">: {self.page3_data['nama_psikolog']}</td>
                         <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">LEMBAGA</td>
                         <td style="padding: 4px 0; color: #c45911; font-weight: bold; text-align: left;">: BEHAVYOURS</td>
                     </tr>
@@ -3110,6 +3147,16 @@ class ExcelViewerApp(QWidget):
             """
 
             # Add page break and third page content
+            # Get signature image if available
+            signature_data_url = ""
+            if hasattr(self, 'page3_data') and self.page3_data['signature_path'] != "Belum ada file dipilih":
+                try:
+                    with open(self.page3_data['signature_path'], "rb") as image_file:
+                        signature_base64 = base64.b64encode(image_file.read()).decode('utf-8')
+                        signature_data_url = f"data:image/png;base64,{signature_base64}"
+                except Exception as e:
+                    print(f"Error loading signature: {e}")
+
             html_content += f"""
                 <div class="page-break"></div>
                 <div class="page" style="padding: 1cm; font-family: Arial;">
@@ -3129,23 +3176,29 @@ class ExcelViewerApp(QWidget):
                         <div style="margin-bottom: 35px;">
                             <div>
                                 <span style="display: inline-block; width: 180px; font-size: 16px;">Tanggal</span>
-                                <span style="font-size: 16px;">: {tanggal_tes_formatted}</span>
+                                <span style="font-size: 16px;">: {self.page3_data['tanggal']}</span>
                             </div>
                             <div style="font-style: italic; font-size: 14px; color: #666; margin-top: 5px;">Date</div>
                         </div>
                         
                         <div style="margin-bottom: 35px;">
-                            <div>
+                            <div style="display: flex; align-items: flex-start;">
                                 <span style="display: inline-block; width: 180px; font-size: 16px;">Tanda Tangan</span>
-                                <span style="font-size: 16px;">:</span>
+                                <div style="position: relative;">
+                                    <span style="font-size: 16px;">:</span>
+                                    <div style="position: relative;">
+                                        {f'<img src="{signature_data_url}" alt="Tanda Tangan" style="max-width: 150px; margin-left: 10px; margin-top: -10px;">' if signature_data_url else ''}
+                                        <div style="position: absolute; bottom: -20px; left: 10px; font-size: 12px;">SIPP: {self.page3_data['nomor_sipp']}</div>
+                                    </div>
+                                </div>
                             </div>
-                            <div style="font-style: italic; font-size: 14px; color: #666; margin-top: 5px;">Signature</div>
+                            <div style="font-style: italic; font-size: 14px; color: #666; margin-top: 25px;">Signature</div>
                         </div>
                         
                         <div style="margin-bottom: 35px;">
                             <div>
                                 <span style="display: inline-block; width: 180px; font-size: 16px;">Nama Psikolog</span>
-                                <span style="font-size: 16px;">: Chitra Ananda Mulia, M.Psi., Psikolog</span>
+                                <span style="font-size: 16px;">: {self.page3_data['nama_psikolog']}</span>
                             </div>
                             <div style="font-style: italic; font-size: 14px; color: #666; margin-top: 5px;">Psychologist Name</div>
                         </div>
@@ -3153,7 +3206,7 @@ class ExcelViewerApp(QWidget):
                         <div style="margin-bottom: 35px;">
                             <div>
                                 <span style="display: inline-block; width: 180px; font-size: 16px;">Nomor STR/SIK</span>
-                                <span style="font-size: 16px;">:</span>
+                                <span style="font-size: 16px;">: {self.page3_data['nomor_str']}</span>
                             </div>
                             <div style="font-style: italic; font-size: 14px; color: #666; margin-top: 5px;">Registration Number</div>
                         </div>
@@ -3161,7 +3214,7 @@ class ExcelViewerApp(QWidget):
                         <div style="margin-bottom: 35px;">
                             <div>
                                 <span style="display: inline-block; width: 180px; font-size: 16px;">Nomor SIPP/SIPPK</span>
-                                <span style="font-size: 16px;">: 1564-19-2-2</span>
+                                <span style="font-size: 16px;">: {self.page3_data['nomor_sipp']}</span>
                             </div>
                             <div style="font-style: italic; font-size: 14px; color: #666; margin-top: 5px;">Licence Number</div>
                         </div>
@@ -3781,6 +3834,95 @@ class ExcelViewerApp(QWidget):
         if column_name in sheet3_references and value in sheet3_references[column_name]:
             return sheet3_references[column_name][value]
         return ""  # Return string kosong jika tidak ada referensi yang cocok
+
+    def show_page3_input_dialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Input Data Halaman 3")
+        dialog.setFixedWidth(400)
+        layout = QVBoxLayout()
+
+        # Tanggal
+        date_layout = QHBoxLayout()
+        date_label = QLabel("Tanggal:")
+        self.date_input = QLineEdit()
+        self.date_input.setReadOnly(True)
+        date_button = QPushButton("Pilih Tanggal")
+        date_button.clicked.connect(lambda: self.show_calendar("page3_date"))
+        date_layout.addWidget(date_label)
+        date_layout.addWidget(self.date_input)
+        date_layout.addWidget(date_button)
+        layout.addLayout(date_layout)
+
+        # Tanda Tangan
+        signature_layout = QHBoxLayout()
+        signature_label = QLabel("Tanda Tangan:")
+        self.signature_path_label = QLabel("Belum ada file dipilih")
+        signature_button = QPushButton("Upload")
+        signature_button.clicked.connect(self.upload_signature)
+        signature_layout.addWidget(signature_label)
+        signature_layout.addWidget(self.signature_path_label)
+        signature_layout.addWidget(signature_button)
+        layout.addLayout(signature_layout)
+
+        # Nama Psikolog
+        psikolog_layout = QHBoxLayout()
+        psikolog_label = QLabel("Nama Psikolog:")
+        self.psikolog_input = QLineEdit()
+        self.psikolog_input.setText("Chitra Ananda Mulia, M.Psi., Psikolog")  # Default value
+        psikolog_layout.addWidget(psikolog_label)
+        psikolog_layout.addWidget(self.psikolog_input)
+        layout.addLayout(psikolog_layout)
+
+        # Nomor STR/SIK
+        str_layout = QHBoxLayout()
+        str_label = QLabel("Nomor STR/SIK:")
+        self.str_input = QLineEdit()
+        str_layout.addWidget(str_label)
+        str_layout.addWidget(self.str_input)
+        layout.addLayout(str_layout)
+
+        # Nomor SIPP/SIPPK
+        sipp_layout = QHBoxLayout()
+        sipp_label = QLabel("Nomor SIPP/SIPPK:")
+        self.sipp_input = QLineEdit()
+        self.sipp_input.setText("1564-19-2-2")  # Default value
+        sipp_layout.addWidget(sipp_label)
+        sipp_layout.addWidget(self.sipp_input)
+        layout.addLayout(sipp_layout)
+
+        # Buttons
+        button_layout = QHBoxLayout()
+        save_button = QPushButton("Simpan")
+        save_button.clicked.connect(lambda: self.save_page3_data(dialog))
+        cancel_button = QPushButton("Batal")
+        cancel_button.clicked.connect(dialog.reject)
+        button_layout.addWidget(save_button)
+        button_layout.addWidget(cancel_button)
+        layout.addLayout(button_layout)
+
+        dialog.setLayout(layout)
+        return dialog
+
+    def upload_signature(self):
+        file_name, _ = QFileDialog.getOpenFileName(
+            self,
+            "Upload Tanda Tangan",
+            "",
+            "Image files (*.jpg *.jpeg *.png *.bmp)"
+        )
+        if file_name:
+            self.signature_path_label.setText(file_name)
+
+    def save_page3_data(self, dialog):
+        # Save the data to class attributes
+        self.page3_data = {
+            'tanggal': self.date_input.text(),
+            'signature_path': self.signature_path_label.text(),
+            'nama_psikolog': self.psikolog_input.text(),
+            'nomor_str': self.str_input.text(),
+            'nomor_sipp': self.sipp_input.text()
+        }
+        dialog.accept()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
