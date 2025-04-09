@@ -208,34 +208,6 @@ class ExcelViewerApp(QWidget):
         papikostick_group.setLayout(papikostick_layout)
         main_layout.addWidget(papikostick_group)
 
-        # Add buttons for adding and updating data
-        self.btn_add = QPushButton("Tambah Data")
-        self.btn_add.setFont(QFont("Arial", 10))
-        self.btn_add.setFixedHeight(35)
-        self.btn_add.setFixedWidth(200)
-        self.btn_add.clicked.connect(lambda: self.add_or_update_row("add"))
-        self.btn_add.setEnabled(False)  # Initially disabled
-
-        self.btn_edit = QPushButton("Edit Data")
-        self.btn_edit.setFont(QFont("Arial", 10))
-        self.btn_edit.setFixedHeight(35)
-        self.btn_edit.setFixedWidth(200)
-        self.btn_edit.clicked.connect(lambda: self.add_or_update_row("edit"))
-        self.btn_edit.setEnabled(False)  # Initially disabled
-
-        # Right-align the buttons in the layout
-        button_container = QWidget()
-        button_layout = QHBoxLayout(button_container)
-        button_layout.addStretch()  # Push buttons to right
-        button_layout.addWidget(self.btn_add)
-        button_layout.addWidget(self.btn_edit)
-        button_layout.setContentsMargins(0, 0, 20, 0)  # Add right margin
-        main_layout.addWidget(button_container)
-
-        # Enable buttons when file is loaded
-        self.btn_select.clicked.connect(lambda: self.btn_add.setEnabled(True))
-        self.btn_select.clicked.connect(lambda: self.btn_edit.setEnabled(True))
-
         # Add toggle buttons for each group
         toggle_layout = QHBoxLayout()
         toggle_personal = QPushButton("Personal Information")
@@ -261,13 +233,40 @@ class ExcelViewerApp(QWidget):
         toggle_papikostick.setFixedHeight(35)
         toggle_papikostick.toggled.connect(lambda checked: papikostick_group.setVisible(checked))
         toggle_layout.addWidget(toggle_papikostick)
-        
+
         # Initially hide all groups
         personal_group.setVisible(False)
         ist_group.setVisible(False)
         papikostick_group.setVisible(False)
         
+        # Create horizontal layout for add and edit buttons with right alignment
+        buttons_layout = QHBoxLayout()
+        buttons_layout.addStretch()  # Add stretch to push buttons to the right
+        
+        # Add buttons for adding and updating data
+        self.btn_add = QPushButton("Tambah Data")
+        self.btn_add.setFont(QFont("Arial", 10))
+        self.btn_add.setFixedHeight(35)
+        self.btn_add.setFixedWidth(200)
+        self.btn_add.clicked.connect(lambda: self.add_or_update_row("add"))
+        self.btn_add.setEnabled(False)  # Initially disabled
+        buttons_layout.addWidget(self.btn_add)
+
+        self.btn_edit = QPushButton("Edit Data")
+        self.btn_edit.setFont(QFont("Arial", 10))
+        self.btn_edit.setFixedHeight(35)
+        self.btn_edit.setFixedWidth(200)
+        self.btn_edit.clicked.connect(lambda: self.add_or_update_row("edit"))
+        self.btn_edit.setEnabled(False)  # Initially disabled
+        buttons_layout.addWidget(self.btn_edit)
+
+        # Add toggle layout and buttons layout to main layout
         main_layout.addLayout(toggle_layout)
+        main_layout.addLayout(buttons_layout)
+
+        # Enable buttons when file is loaded
+        self.btn_select.clicked.connect(lambda: self.btn_add.setEnabled(True))
+        self.btn_select.clicked.connect(lambda: self.btn_edit.setEnabled(True))
 
         # Search Section
         search_group = QGroupBox("Pencarian")
