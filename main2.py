@@ -3030,17 +3030,35 @@ class ExcelViewerApp(QWidget):
             for key in ["inisiatif", "kerjasama", "keterampilan_interpersonal", "stabilitas_emosi"]:
                 personality_scores.append(aspects[key] if key in aspects else "")
 
-            # Determine recommendation based on criteria
-            def determine_recommendation():
-                if iq_value >= 90 and intellectual_k_count <= 2 and work_attitude_k_count <= 1 and personality_k_count <= 1:
-                    return "LAYAK DIREKOMENDASIKAN"
-                elif 86 <= iq_value < 90 and intellectual_k_count <= 3 and work_attitude_k_count <= 1 and personality_k_count <= 2:
-                    return "LAYAK DIPERTIMBANGKAN"
-                else:
-                    return "TIDAK DISARANKAN"
+            # # Determine recommendation based on criteria
+            # def determine_recommendation():
+            #     if iq_value >= 90 and intellectual_k_count <= 2 and work_attitude_k_count <= 1 and personality_k_count <= 1:
+            #         return "LAYAK DIREKOMENDASIKAN"
+            #     elif 86 <= iq_value < 90 and intellectual_k_count <= 3 and work_attitude_k_count <= 1 and personality_k_count <= 2:
+            #         return "LAYAK DIPERTIMBANGKAN"
+            #     else:
+            #         return "TIDAK DISARANKAN"
+            columns_to_check = [
+                "Logika Berpikir 1", "Daya Analisa 3", "Kemampuan Verbal 2 dam 4", "Kemampuan Numerik 5",
+                "Sistematika Kerja/ C D R", "Orientasi Hasil/ N G", "Fleksibilitas/ T V", "Motivasi Berprestasi/ A",
+                "Kerjasama/ P I", "Keterampilan Interpersonal/ B S", "Stabilitas Emosi/ E PHQ", "Pegembangan Diri/ W",
+                "Mengelola Perubahan/ Z K"
+            ]
+            value_counts = {'B': 0, 'C': 0, 'K': 0, 'R': 0, 'T': 0}
+            for column in columns_to_check:
+                value = row_data.get(column, '')
+                if value in value_counts:
+                    value_counts[value] += 1
 
             # Get the overall recommendation
-            overall_recommendation = determine_recommendation()
+            total_kr = value_counts['K'] + value_counts['R']
+
+            if total_kr >= 9:
+                overall_recommendation = "TIDAK DISARANKAN"
+            elif total_kr >= 4:
+                overall_recommendation = "LAYAK DIPERTIMBANGKAN"
+            else:
+                overall_recommendation = "LAYAK DIREKOMENDASIKAN"
             
             # Add page break and second page content
             html_content += f"""
@@ -3837,7 +3855,7 @@ class ExcelViewerApp(QWidget):
 
     def show_page3_input_dialog(self):
         dialog = QDialog(self)
-        dialog.setWindowTitle("Input Data Halaman 3")
+        dialog.setWindowTitle("Informasi Pemeriksa")
         dialog.setFixedWidth(400)
         layout = QVBoxLayout()
 
@@ -3868,7 +3886,7 @@ class ExcelViewerApp(QWidget):
         psikolog_layout = QHBoxLayout()
         psikolog_label = QLabel("Nama Psikolog:")
         self.psikolog_input = QLineEdit()
-        self.psikolog_input.setText("Chitra Ananda Mulia, M.Psi., Psikolog")  # Default value
+        # self.psikolog_input.setText("Chitra Ananda Mulia, M.Psi., Psikolog")  # Default value
         psikolog_layout.addWidget(psikolog_label)
         psikolog_layout.addWidget(self.psikolog_input)
         layout.addLayout(psikolog_layout)
@@ -3885,7 +3903,7 @@ class ExcelViewerApp(QWidget):
         sipp_layout = QHBoxLayout()
         sipp_label = QLabel("Nomor SIPP/SIPPK:")
         self.sipp_input = QLineEdit()
-        self.sipp_input.setText("1564-19-2-2")  # Default value
+        # self.sipp_input.setText("1564-19-2-2")  # Default value
         sipp_layout.addWidget(sipp_label)
         sipp_layout.addWidget(self.sipp_input)
         layout.addLayout(sipp_layout)
