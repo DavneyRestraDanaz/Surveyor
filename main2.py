@@ -1058,11 +1058,11 @@ class ExcelViewerApp(QWidget):
             print(f"Error: Invalid field type {field_type}")
 
     def set_date(self, date, field_type):
-        # Format tanggal sebagai "d MMMM yyyy" dalam bahasa Indonesia
+        # Format tanggal sebagai "DD MMMM YYYY" dalam bahasa Indonesia dengan huruf kapital
         months_id = {
-            1: "Januari", 2: "Februari", 3: "Maret", 4: "April",
-            5: "Mei", 6: "Juni", 7: "Juli", 8: "Agustus",
-            9: "September", 10: "Oktober", 11: "November", 12: "Desember"
+            1: "JANUARI", 2: "FEBRUARI", 3: "MARET", 4: "APRIL",
+            5: "MEI", 6: "JUNI", 7: "JULI", 8: "AGUSTUS",
+            9: "SEPTEMBER", 10: "OKTOBER", 11: "NOVEMBER", 12: "DESEMBER"
         }
         
         day = str(date.day())
@@ -1072,9 +1072,9 @@ class ExcelViewerApp(QWidget):
         
         # Set the date in the appropriate field
         if field_type == "tgl_lahir":
-            self.tgl_lahir_field.setText(formatted_date)
+            self.personal_inputs[3].setText(formatted_date)  # Index 3 untuk TGL Lahir
         elif field_type == "tgl_test":
-            self.tgl_test_field.setText(formatted_date)
+            self.personal_inputs[2].setText(formatted_date)  # Index 2 untuk Tgl Test
         elif field_type == "page3_date":
             self.date_input.setText(formatted_date)
             
@@ -2478,33 +2478,65 @@ class ExcelViewerApp(QWidget):
 
             # Convert and format birth date from Excel
             try:
-                # Try parse with DD/MM/YYYY format
-                tgl_lahir_obj = datetime.strptime(tgl_lahir, "%d/%m/%Y")
-            except ValueError:
-                try:
-                    # If failed, try parse with YYYY-MM-DD format
-                    tgl_lahir_obj = datetime.strptime(tgl_lahir, "%Y-%m-%d")
-                except ValueError:
-                    # If still failed, use current date as fallback
-                    print(f"Error: Date format '{tgl_lahir}' not recognized. Using current date.")
+                # Mapping bulan Indonesia ke angka
+                bulan_ke_angka = {
+                    'JANUARI': 1, 'FEBRUARI': 2, 'MARET': 3, 'APRIL': 4,
+                    'MEI': 5, 'JUNI': 6, 'JULI': 7, 'AGUSTUS': 8,
+                    'SEPTEMBER': 9, 'OKTOBER': 10, 'NOVEMBER': 11, 'DESEMBER': 12
+                }
+                
+                # Parse tanggal dengan format Indonesia (DD MMMM YYYY)
+                if tgl_lahir:
+                    parts = tgl_lahir.split()
+                    if len(parts) == 3:
+                        day = int(parts[0])
+                        month = bulan_ke_angka.get(parts[1].upper())
+                        year = int(parts[2])
+                        if month:
+                            tgl_lahir_obj = datetime(year, month, day)
+                        else:
+                            raise ValueError(f"Bulan tidak valid: {parts[1]}")
+                    else:
+                        raise ValueError(f"Format tanggal tidak sesuai: {tgl_lahir}")
+                else:
                     tgl_lahir_obj = datetime.now()
                     
-            tgl_lahir_formatted = tgl_lahir_obj.strftime("%d %B %Y")
+            except ValueError as e:
+                print(f"Error: {e}")
+                tgl_lahir_obj = datetime.now()
+                
+            # Format tanggal lahir ke format Indonesia
+            months_id = {
+                1: "JANUARI", 2: "FEBRUARI", 3: "MARET", 4: "APRIL",
+                5: "MEI", 6: "JUNI", 7: "JULI", 8: "AGUSTUS",
+                9: "SEPTEMBER", 10: "OKTOBER", 11: "NOVEMBER", 12: "DESEMBER"
+            }
+            tgl_lahir_formatted = f"{tgl_lahir_obj.day} {months_id[tgl_lahir_obj.month]} {tgl_lahir_obj.year}"
 
             # Convert and format test date from Excel
             try:
-                # Try parse with DD/MM/YYYY format
-                tgl_test_obj = datetime.strptime(tanggal_tes, "%d/%m/%Y")
-            except ValueError:
-                try:
-                    # If failed, try parse with YYYY-MM-DD format
-                    tgl_test_obj = datetime.strptime(tanggal_tes, "%Y-%m-%d")
-                except ValueError:
-                    # If still failed, use current date as fallback
-                    print(f"Error: Date format '{tanggal_tes}' not recognized. Using current date.")
+                # Parse tanggal tes dengan format Indonesia (DD MMMM YYYY)
+                if tanggal_tes:
+                    parts = tanggal_tes.split()
+                    if len(parts) == 3:
+                        day = int(parts[0])
+                        month = bulan_ke_angka.get(parts[1].upper())
+                        year = int(parts[2])
+                        if month:
+                            tgl_test_obj = datetime(year, month, day)
+                        else:
+                            raise ValueError(f"Bulan tidak valid: {parts[1]}")
+                    else:
+                        raise ValueError(f"Format tanggal tidak sesuai: {tanggal_tes}")
+                else:
                     tgl_test_obj = datetime.now()
                     
-            tanggal_tes_formatted = tgl_test_obj.strftime("%d %B %Y")
+            except ValueError as e:
+                print(f"Error: {e}")
+                tgl_test_obj = datetime.now()
+                
+            # Format tanggal tes ke format Indonesia
+            tanggal_tes_formatted = f"{tgl_test_obj.day} {months_id[tgl_test_obj.month]} {tgl_test_obj.year}"
 
             # Get company name from Excel
             nama_pt_col = self.get_column_index("Nama PT")
