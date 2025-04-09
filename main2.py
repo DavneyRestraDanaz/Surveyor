@@ -128,7 +128,10 @@ class ExcelViewerApp(QWidget):
             # Special handling for JK, TGL Lahir, dan Tgl Test
             if placeholder == "TGL Lahir" or placeholder == "Tgl Test":
                 field = QPushButton("Pilih Tanggal")
-                field.clicked.connect(lambda checked=False, placeholder=placeholder: self.show_calendar(placeholder))
+                if placeholder == "TGL Lahir":
+                    field.clicked.connect(lambda checked, p="tgl_lahir": self.show_calendar(p))
+                else:  # Tgl Test
+                    field.clicked.connect(lambda checked, p="tgl_test": self.show_calendar(p))
             elif placeholder == "JK":
                 field = QPushButton("Pilih Jenis Kelamin")
                 field.clicked.connect(self.show_gender_dialog)
@@ -1016,12 +1019,17 @@ class ExcelViewerApp(QWidget):
         
         # Get the target field based on field_type
         target_field = None
+        field_index = -1
+        
         if field_type == "tgl_lahir":
-            target_field = self.tgl_lahir_field
+            field_index = 3  # Index untuk TGL Lahir
         elif field_type == "tgl_test":
-            target_field = self.tgl_test_field
+            field_index = 2  # Index untuk Tgl Test
         elif field_type == "page3_date":
             target_field = self.date_input
+            
+        if field_index >= 0:
+            target_field = self.personal_inputs[field_index]
         
         if target_field:
             # Create popup window
