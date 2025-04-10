@@ -603,12 +603,50 @@ class ExcelViewerApp(QWidget):
                             new_df[col] = new_df[col].replace(["", "nan", "NaN"], "0")
 
                     # Konversi kolom tertentu menjadi string
-                    str_columns = ['No', 'No Tes', 'Tgl Test', 'TGL Lahir', 'Nama PT', 'JK', 'SDR/SDRI', 'Nama Peserta', 'PHQ', 'Keterangan PHQ']
+                    str_columns = ['No', 'No Tes', 'Nama PT', 'JK', 'SDR/SDRI', 'Nama Peserta', 'PHQ', 'Keterangan PHQ']
                     for col in str_columns:
                         if col in new_df.columns:
                             new_df[col] = new_df[col].astype(str)
                             # Pastikan nilai kolom tidak 'nan'
                             new_df[col] = new_df[col].replace('nan', '')
+                    
+                    # Konversi dan format kolom tanggal
+                    date_columns = ['Tgl Test', 'TGL Lahir']
+                    months_id = {
+                        1: "JANUARI", 2: "FEBRUARI", 3: "MARET", 4: "APRIL",
+                        5: "MEI", 6: "JUNI", 7: "JULI", 8: "AGUSTUS",
+                        9: "SEPTEMBER", 10: "OKTOBER", 11: "NOVEMBER", 12: "DESEMBER"
+                    }
+                    
+                    for col in date_columns:
+                        if col in new_df.columns:
+                            # Konversi string kosong dan 'nan' ke nilai kosong
+                            new_df[col] = new_df[col].replace(['nan', 'NaN', ''], '')
+                            
+                            # Coba konversi dengan berbagai format tanggal
+                            def convert_date(x):
+                                if pd.isna(x) or x == '':
+                                    return ''
+                                try:
+                                    # Coba parse tanggal dengan format yang sudah ada
+                                    if isinstance(x, str) and any(month in x.upper() for month in months_id.values()):
+                                        for i, month in months_id.items():
+                                            if month in x.upper():
+                                                parts = x.upper().replace(month, str(i)).split()
+                                                if len(parts) >= 3:
+                                                    day = int(parts[0])
+                                                    month = int(parts[1])
+                                                    year = int(parts[2])
+                                                    return f"{day} {months_id[month]} {year}"
+                                    # Konversi ke datetime jika format lain
+                                    date = pd.to_datetime(x, errors='coerce')
+                                    if pd.notnull(date):
+                                        return f"{date.day} {months_id[date.month]} {date.year}"
+                                except Exception as e:
+                                    print(f"Error converting date {x}: {e}")
+                                return ''
+                            
+                            new_df[col] = new_df[col].apply(convert_date)
 
                     # Konversi kolom angka ke numeric - sesuaikan dengan kolom yang dipakai
                     numeric_columns = ['IQ ', 'SE / Konkrit Praktis', 'WA/ Verbal', ' AN / Flexibilitas Pikir', 
