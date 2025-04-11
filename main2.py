@@ -3263,7 +3263,7 @@ class ExcelViewerApp(QWidget):
                         </div>
                         <div style="text-align: right; font-size: 12px;">
                             <div style="font-weight: bold; color: #1f4e79;">RAHASIA</div>
-                            <div style="color: #1f4e79;">{row_data.get('No', '')}{row_data.get('No Tes', '')}</div>
+                            <div style="color: #1f4e79;">No. {row_data.get('No', '')}{row_data.get('No Tes', '')}</div>
                         </div>
                     </div>
 
@@ -3281,9 +3281,8 @@ class ExcelViewerApp(QWidget):
                                 <span style="display: inline-block; width: 180px; font-size: 16px;">Tanda Tangan</span>
                                 <div style="position: relative;">
                                     <span style="font-size: 16px;">:</span>
-                                    <div style="position: relative;">
-                                        {f'<img src="{signature_data_url}" alt="Tanda Tangan" style="max-width: 150px; margin-left: 10px; margin-top: -10px;">' if signature_data_url else ''}
-                                        <div style="position: absolute; bottom: -20px; left: 10px; font-size: 12px;">SIPP: {self.page3_data['nomor_sipp']}</div>
+                                    <div style="display: flex; flex-direction: column; align-items: center;">
+                                        {f'<img src="{signature_data_url}" alt="Tanda Tangan" style="max-width: 150px; margin-left: 10px;">' if signature_data_url else ''}
                                     </div>
                                 </div>
                             </div>
